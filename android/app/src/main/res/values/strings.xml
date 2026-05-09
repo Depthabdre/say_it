@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">TapReply uses this service to read context from your screen when requested, and to insert generated replies into your chat box.</string>
+</resources>

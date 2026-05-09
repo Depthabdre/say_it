@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
+import 'package:say_it/core/native_bridge/accessibility_service.dart';
 
 // The entry point for the overlay window.
 // This is essential for flutter_overlay_window to work.
@@ -63,6 +64,7 @@ class MainConfigurationScreen extends StatefulWidget {
 
 class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
   bool _hasOverlayPermission = false;
+  bool _hasAccessibilityPermission = false;
 
   @override
   void initState() {
@@ -71,9 +73,11 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
   }
 
   Future<void> _checkPermissions() async {
-    final hasPermission = await FlutterOverlayWindow.isPermissionGranted();
+    final hasOverlay = await FlutterOverlayWindow.isPermissionGranted();
+    final hasAccessibility = await AccessibilityServiceBridge.isAccessibilityEnabled();
     setState(() {
-      _hasOverlayPermission = hasPermission;
+      _hasOverlayPermission = hasOverlay;
+      _hasAccessibilityPermission = hasAccessibility;
     });
   }
 
@@ -82,6 +86,11 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
     setState(() {
       _hasOverlayPermission = granted ?? false;
     });
+  }
+  
+  Future<void> _requestAccessibilityPermission() async {
+    await AccessibilityServiceBridge.openAccessibilitySettings();
+    // User has to manually navigate back, so we re-check when app resumes.
   }
 
   Future<void> _showOverlay() async {
@@ -110,6 +119,13 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
       appBar: AppBar(
         title: const Text("TapReply Configuration"),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _checkPermissions,
+            tooltip: "Refresh Permissions",
+          )
+        ],
       ),
       body: Center(
         child: Padding(
@@ -117,39 +133,41 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                _hasOverlayPermission ? Icons.check_circle : Icons.warning_amber_rounded,
-                color: _hasOverlayPermission ? Colors.green : Colors.orange,
-                size: 64,
+              // Overlay Status
+              ListTile(
+                leading: Icon(
+                  _hasOverlayPermission ? Icons.check_circle : Icons.warning_amber_rounded,
+                  color: _hasOverlayPermission ? Colors.green : Colors.orange,
+                  size: 32,
+                ),
+                title: Text("Overlay Permission"),
+                subtitle: Text("Allows the bubble to float."),
+                trailing: !_hasOverlayPermission 
+                  ? TextButton(onPressed: _requestOverlayPermission, child: Text("GRANT"))
+                  : null,
               ),
-              const SizedBox(height: 16),
-              Text(
-                _hasOverlayPermission 
-                  ? "Overlay Permission Granted" 
-                  : "Overlay Permission Required",
-                style: Theme.of(context).textTheme.titleLarge,
+              const Divider(),
+              // Accessibility Status
+              ListTile(
+                leading: Icon(
+                  _hasAccessibilityPermission ? Icons.check_circle : Icons.warning_amber_rounded,
+                  color: _hasAccessibilityPermission ? Colors.green : Colors.orange,
+                  size: 32,
+                ),
+                title: Text("Accessibility Service"),
+                subtitle: Text("Allows reading screen & injecting replies."),
+                trailing: !_hasAccessibilityPermission 
+                  ? TextButton(onPressed: _requestAccessibilityPermission, child: Text("GRANT"))
+                  : null,
               ),
-              const SizedBox(height: 8),
-              Text(
-                "TapReply needs to draw a bubble over other apps so you can access it anywhere.",
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70),
-              ),
+              
               const SizedBox(height: 32),
-              if (!_hasOverlayPermission)
-                ElevatedButton.icon(
-                  onPressed: _requestOverlayPermission,
-                  icon: const Icon(Icons.settings),
-                  label: const Text("Grant Permission"),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  ),
-                )
-              else ...[
+              
+              if (_hasOverlayPermission && _hasAccessibilityPermission) ...[
                 ElevatedButton.icon(
                   onPressed: _showOverlay,
                   icon: const Icon(Icons.bubble_chart),
-                  label: const Text("Show Bubble"),
+                  label: const Text("Launch TapReply Bubble"),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   ),
@@ -160,7 +178,13 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
                   icon: const Icon(Icons.close),
                   label: const Text("Close Bubble"),
                 ),
-              ],
+              ] else ...[
+                 Text(
+                  "Please grant all permissions above to use TapReply.",
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                ),
+              ]
             ],
           ),
         ),
