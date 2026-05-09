@@ -17,6 +17,17 @@ class SayItAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         Log.d("SayItAccessibility", "Accessibility Service Connected")
+        
+        try {
+            // flutter_overlay_window caches the overlay engine with this tag
+            val engine = io.flutter.embedding.engine.FlutterEngineCache.getInstance().get("myCachedEngine")
+            if (engine != null) {
+                MainActivity.setupMethodChannel(engine, this)
+                Log.d("SayItAccessibility", "Bound MethodChannel to Overlay Engine")
+            }
+        } catch (e: Exception) {
+            Log.e("SayItAccessibility", "Failed to bind to overlay engine: " + e.message)
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {

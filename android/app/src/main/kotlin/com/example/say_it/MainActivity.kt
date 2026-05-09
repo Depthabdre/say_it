@@ -7,43 +7,50 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.example.say_it/accessibility"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        setupMethodChannel(flutterEngine, this)
+    }
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "isAccessibilityEnabled" -> {
-                    val isEnabled = SayItAccessibilityService.instance != null
-                    result.success(isEnabled)
-                }
-                "openAccessibilitySettings" -> {
-                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                    startActivity(intent)
-                    result.success(true)
-                }
-                "extractScreenText" -> {
-                    val service = SayItAccessibilityService.instance
-                    if (service != null) {
-                        val text = service.extractScreenText()
-                        result.success(text)
-                    } else {
-                        result.error("UNAVAILABLE", "Accessibility service not running.", null)
+    companion object {
+        const val CHANNEL = "com.example.say_it/accessibility"
+
+        fun setupMethodChannel(flutterEngine: FlutterEngine, context: android.content.Context) {
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "isAccessibilityEnabled" -> {
+                        val isEnabled = SayItAccessibilityService.instance != null
+                        result.success(isEnabled)
                     }
-                }
-                "injectText" -> {
-                    val textToInject = call.argument<String>("text")
-                    val service = SayItAccessibilityService.instance
-                    if (service != null && textToInject != null) {
-                        val success = service.injectTextIntoActiveField(textToInject)
-                        result.success(success)
-                    } else {
-                        result.error("UNAVAILABLE", "Service not running or text missing.", null)
+                    "openAccessibilitySettings" -> {
+                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(intent)
+                        result.success(true)
                     }
-                }
-                else -> {
-                    result.notImplemented()
+                    "extractScreenText" -> {
+                        val service = SayItAccessibilityService.instance
+                        if (service != null) {
+                            val text = service.extractScreenText()
+                            result.success(text)
+                        } else {
+                            result.error("UNAVAILABLE", "Accessibility service not running.", null)
+                        }
+                    }
+                    "injectText" -> {
+                        val textToInject = call.argument<String>("text")
+                        val service = SayItAccessibilityService.instance
+                        if (service != null && textToInject != null) {
+                            val success = service.injectTextIntoActiveField(textToInject)
+                            result.success(success)
+                        } else {
+                            result.error("UNAVAILABLE", "Service not running or text missing.", null)
+                        }
+                    }
+                    else -> {
+                        result.notImplemented()
+                    }
                 }
             }
         }

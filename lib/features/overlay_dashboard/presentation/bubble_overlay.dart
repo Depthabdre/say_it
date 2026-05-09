@@ -2,6 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:say_it/features/ai_engine/domain/models.dart';
+import 'package:say_it/features/ai_engine/application/gemini_service.dart';
+import 'package:say_it/core/native_bridge/accessibility_service.dart';
 
 class BubbleOverlay extends StatefulWidget {
   const BubbleOverlay({super.key});
@@ -84,25 +86,57 @@ class _BubbleOverlayState extends State<BubbleOverlay> with SingleTickerProvider
     }
   }
 
-  void _handleGenerate() {
+  void _handleGenerate() async {
     setState(() {
       isGenerating = true;
       errorMessage = null;
       generatedReplies.clear();
     });
 
-    FlutterOverlayWindow.shareData({
-      'action': 'GENERATE',
-      'tone': selectedTone.name,
-      'instructions': _instructionController.text,
-    });
+    try {
+      // 1. Get Screen Text Locally via Bridge! (Native Kotlin is bound to our Overlay Engine now)
+      final screenText = await AccessibilityServiceBridge.extractScreenText();
+      if (screenText == null || screenText.trim().isEmpty || screenText == "NO_ROOT_NODE") {
+        setState(() {
+          errorMessage = "Could not read screen. Please open a chat app first or check Accessibility Permissions.";
+          isGenerating = false;
+        });
+        return;
+      }
+
+      // 2. Call Gemini
+      final geminiService = GeminiService();
+      final request = GenerationRequest(
+        screenContextText: screenText,
+        tone: selectedTone,
+        customInstructions: _instructionController.text,
+      );
+
+      final replies = await geminiService.generateReplies(request);
+
+      if (mounted) {
+        setState(() {
+          generatedReplies = replies;
+          isGenerating = false;
+        });
+        if (isExpanded) {
+          FlutterOverlayWindow.resizeOverlay(WindowSize.matchParent, 600, true);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          errorMessage = e.toString();
+          isGenerating = false;
+        });
+      }
+    }
   }
   
-  void _handleInsert(String text) {
-    FlutterOverlayWindow.shareData({
-      'action': 'INSERT_TEXT',
-      'text': text,
-    });
+  void _handleInsert(String text) async {
+    // Inject locally via Bridge!
+    await AccessibilityServiceBridge.injectText(text);
+    _toggleExpand(); // close bubble
   }
 
   @override

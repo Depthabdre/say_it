@@ -3,13 +3,15 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:say_it/core/native_bridge/accessibility_service.dart';
 import 'package:say_it/features/overlay_dashboard/presentation/bubble_overlay.dart';
-import 'package:say_it/features/ai_engine/application/gemini_service.dart';
-import 'package:say_it/features/ai_engine/domain/models.dart';
 
 // The entry point for the overlay window.
 @pragma("vm:entry-point")
-void overlayMain() {
+void overlayMain() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load environment variables securely for the Overlay Engine
+  await dotenv.load(fileName: ".env").catchError((_) {});
+
   runApp(
     const MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -24,49 +26,8 @@ void overlayMain() {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Load environment variables securely
+  // Load environment variables securely for the Main Engine
   await dotenv.load(fileName: ".env").catchError((_) {});
-
-  // Setup the background listener to act as the Bridge between Overlay UI, AI, and Native Android
-  FlutterOverlayWindow.overlayListener.listen((event) async {
-    if (event is Map) {
-      if (event['action'] == 'GENERATE') {
-        try {
-          // 1. Read the screen context natively
-          final screenText = await AccessibilityServiceBridge.extractScreenText();
-          if (screenText == null || screenText.isEmpty) {
-            FlutterOverlayWindow.shareData({'error': 'Could not read screen content. Is Accessibility enabled?'});
-            return;
-          }
-
-          // 2. Map the requested tone
-          final toneName = event['tone'] as String;
-          final tone = ReplyTone.values.firstWhere((e) => e.name == toneName, orElse: () => ReplyTone.normal);
-
-          // 3. Call Gemini
-          final geminiService = GeminiService();
-          final request = GenerationRequest(
-            screenContextText: screenText,
-            tone: tone,
-            customInstructions: event['instructions'],
-          );
-
-          final replies = await geminiService.generateReplies(request);
-
-          // 4. Send replies back to Overlay
-          FlutterOverlayWindow.shareData({'action': 'REPLIES_READY', 'replies': replies});
-        } catch (e) {
-          FlutterOverlayWindow.shareData({'error': e.toString()});
-        }
-      } else if (event['action'] == 'INSERT_TEXT') {
-        // 5. Inject chosen reply into active field
-        final textToInject = event['text'] as String;
-        await AccessibilityServiceBridge.injectText(textToInject);
-        // Automatically close bubble after magic send
-        await FlutterOverlayWindow.closeOverlay();
-      }
-    }
-  });
 
   runApp(const SayItApp());
 }
