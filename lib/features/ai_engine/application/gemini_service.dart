@@ -4,7 +4,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:say_it/features/ai_engine/domain/models.dart';
 
 class GeminiService {
-  static const String _modelName = 'gemini-1.5-flash';
+  static const String _modelName = 'gemini-2.5-flash';
   
   late final GenerativeModel _model;
   
