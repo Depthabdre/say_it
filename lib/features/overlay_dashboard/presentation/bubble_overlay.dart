@@ -12,12 +12,13 @@ class BubbleOverlay extends StatefulWidget {
   State<BubbleOverlay> createState() => _BubbleOverlayState();
 }
 
-class _BubbleOverlayState extends State<BubbleOverlay> with SingleTickerProviderStateMixin {
+class _BubbleOverlayState extends State<BubbleOverlay>
+    with SingleTickerProviderStateMixin {
   bool isExpanded = false;
   bool isGenerating = false;
   String? errorMessage;
   List<String> generatedReplies = [];
-  
+
   ReplyTone selectedTone = ReplyTone.normal;
   final TextEditingController _instructionController = TextEditingController();
 
@@ -49,7 +50,11 @@ class _BubbleOverlayState extends State<BubbleOverlay> with SingleTickerProvider
           });
           // Resize larger to fit cards
           if (isExpanded) {
-            FlutterOverlayWindow.resizeOverlay(WindowSize.matchParent, 600, true);
+            FlutterOverlayWindow.resizeOverlay(
+              WindowSize.matchParent,
+              600,
+              true,
+            );
           }
         } else if (event['error'] != null) {
           setState(() {
@@ -80,9 +85,19 @@ class _BubbleOverlayState extends State<BubbleOverlay> with SingleTickerProvider
     });
 
     if (isExpanded) {
-      await FlutterOverlayWindow.resizeOverlay(WindowSize.matchParent, 450, true);
+      await FlutterOverlayWindow.updateFlag(OverlayFlag.focusPointer);
+      await FlutterOverlayWindow.resizeOverlay(
+        WindowSize.matchParent,
+        450,
+        true,
+      );
     } else {
-      await FlutterOverlayWindow.resizeOverlay(WindowSize.matchParent, 200, true);
+      await FlutterOverlayWindow.updateFlag(OverlayFlag.defaultFlag);
+      await FlutterOverlayWindow.resizeOverlay(
+        WindowSize.matchParent,
+        200,
+        true,
+      );
     }
   }
 
@@ -96,9 +111,12 @@ class _BubbleOverlayState extends State<BubbleOverlay> with SingleTickerProvider
     try {
       // 1. Get Screen Text Locally via Bridge! (Native Kotlin is bound to our Overlay Engine now)
       final screenText = await AccessibilityServiceBridge.extractScreenText();
-      if (screenText == null || screenText.trim().isEmpty || screenText == "NO_ROOT_NODE") {
+      if (screenText == null ||
+          screenText.trim().isEmpty ||
+          screenText == "NO_ROOT_NODE") {
         setState(() {
-          errorMessage = "Could not read screen. Please open a chat app first or check Accessibility Permissions.";
+          errorMessage =
+              "Could not read screen. Please open a chat app first or check Accessibility Permissions.";
           isGenerating = false;
         });
         return;
@@ -132,7 +150,7 @@ class _BubbleOverlayState extends State<BubbleOverlay> with SingleTickerProvider
       }
     }
   }
-  
+
   void _handleInsert(String text) async {
     // Inject locally via Bridge!
     await AccessibilityServiceBridge.injectText(text);
@@ -152,7 +170,9 @@ class _BubbleOverlayState extends State<BubbleOverlay> with SingleTickerProvider
           transitionBuilder: (Widget child, Animation<double> animation) {
             return ScaleTransition(scale: animation, child: child);
           },
-          child: isExpanded ? _buildExpandedDashboard() : _buildCollapsedBubble(),
+          child: isExpanded
+              ? _buildExpandedDashboard()
+              : _buildCollapsedBubble(),
         ),
       ),
     );
@@ -180,7 +200,7 @@ class _BubbleOverlayState extends State<BubbleOverlay> with SingleTickerProvider
                 color: const Color(0x666366F1), // 0.4 opacity
                 blurRadius: 12,
                 spreadRadius: 2,
-              )
+              ),
             ],
           ),
           child: const Icon(Icons.auto_awesome, color: Colors.white, size: 28),
@@ -207,7 +227,7 @@ class _BubbleOverlayState extends State<BubbleOverlay> with SingleTickerProvider
               BoxShadow(
                 color: const Color(0x4D000000), // 0.3 opacity
                 blurRadius: 20,
-              )
+              ),
             ],
           ),
           child: SingleChildScrollView(
@@ -219,157 +239,185 @@ class _BubbleOverlayState extends State<BubbleOverlay> with SingleTickerProvider
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.auto_awesome, color: Color(0xFFA855F7), size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        "TapReply",
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome,
+                          color: Color(0xFFA855F7),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "TapReply",
+                          style: TextStyle(
+                            color: Colors.white.withAlpha(230),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white54),
+                      onPressed: _toggleExpand,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Input Field
+                TextField(
+                  controller: _instructionController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: "Optional: Tell them I'm running late...",
+                    hintStyle: TextStyle(color: Colors.white38),
+                    filled: true,
+                    fillColor: const Color(0x4D000000), // 0.3 opacity
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    suffixIcon: const Icon(Icons.mic, color: Colors.white54),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Tone Selectors
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: ReplyTone.values.map((tone) {
+                      final isSelected = selectedTone == tone;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(tone.displayName),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected) setState(() => selectedTone = tone);
+                          },
+                          selectedColor: const Color(0x336366F1), // 0.2 opacity
+                          backgroundColor: Colors.transparent,
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? const Color(0xFF818CF8)
+                                : Colors.white60,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: isSelected
+                                  ? const Color(0xFF6366F1)
+                                  : const Color(0x3DFFFFFF), // 0.24 opacity
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Generate Button or Results
+                if (isGenerating)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF6366F1),
+                      ),
+                    ),
+                  )
+                else if (errorMessage != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0x1AF44336), // red 0.1
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0x4DF44336),
+                      ), // red 0.3
+                    ),
+                    child: Text(
+                      errorMessage!,
+                      style: const TextStyle(color: Colors.redAccent),
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else if (generatedReplies.isNotEmpty)
+                  Column(
+                    children: generatedReplies.map((reply) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0x0DFFFFFF), // white 0.05
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0x1AFFFFFF),
+                          ), // white 0.1
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                reply,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.send,
+                                color: Color(0xFF6366F1),
+                              ),
+                              onPressed: () => _handleInsert(reply),
+                              tooltip: "Magic Send",
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  )
+                else
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _handleGenerate,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text(
+                        "Generate Magic Replies",
                         style: TextStyle(
-                          color: Colors.white.withAlpha(230),
-                          fontSize: 18,
+                          color: Colors.white,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white54),
-                    onPressed: _toggleExpand,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  )
-                ],
-              ),
-              const SizedBox(height: 16),
-              
-              // Input Field
-              TextField(
-                controller: _instructionController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: "Optional: Tell them I'm running late...",
-                  hintStyle: TextStyle(color: Colors.white38),
-                  filled: true,
-                  fillColor: const Color(0x4D000000), // 0.3 opacity
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  suffixIcon: const Icon(Icons.mic, color: Colors.white54),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Tone Selectors
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: ReplyTone.values.map((tone) {
-                    final isSelected = selectedTone == tone;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(tone.displayName),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          if (selected) setState(() => selectedTone = tone);
-                        },
-                        selectedColor: const Color(0x336366F1), // 0.2 opacity
-                        backgroundColor: Colors.transparent,
-                        labelStyle: TextStyle(
-                          color: isSelected ? const Color(0xFF818CF8) : Colors.white60,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          side: BorderSide(
-                            color: isSelected ? const Color(0xFF6366F1) : const Color(0x3DFFFFFF), // 0.24 opacity
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Generate Button or Results
-              if (isGenerating)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: CircularProgressIndicator(color: Color(0xFF6366F1)),
-                  ),
-                )
-              else if (errorMessage != null)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0x1AF44336), // red 0.1
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0x4DF44336)), // red 0.3
-                  ),
-                  child: Text(
-                    errorMessage!,
-                    style: const TextStyle(color: Colors.redAccent),
-                    textAlign: TextAlign.center,
-                  ),
-                )
-              else if (generatedReplies.isNotEmpty)
-                Column(
-                  children: generatedReplies.map((reply) {
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0x0DFFFFFF), // white 0.05
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0x1AFFFFFF)), // white 0.1
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              reply,
-                              style: const TextStyle(color: Colors.white, fontSize: 14),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.send, color: Color(0xFF6366F1)),
-                            onPressed: () => _handleInsert(reply),
-                            tooltip: "Magic Send",
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                )
-              else
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _handleGenerate,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6366F1),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text(
-                      "Generate Magic Replies",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
