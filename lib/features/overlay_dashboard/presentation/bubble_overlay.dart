@@ -267,11 +267,35 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                         ),
                       ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white54),
-                      onPressed: _toggleExpand,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Colors.white54,
+                            size: 28,
+                          ),
+                          onPressed: _toggleExpand,
+                          tooltip: "Minimize to bubble",
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 16),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.redAccent,
+                            size: 24,
+                          ),
+                          onPressed: () async {
+                            await FlutterOverlayWindow.closeOverlay();
+                          },
+                          tooltip: "Close TapReply",
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
                     ),
                   ],
                 ),
