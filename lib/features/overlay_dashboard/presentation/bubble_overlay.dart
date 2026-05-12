@@ -289,6 +289,19 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                             size: 24,
                           ),
                           onPressed: () async {
+                            // Reset state BEFORE closing so next launch is clean!
+                            // Because the flutter engine is cached by the plugin,
+                            // state persists on reopen.
+                            setState(() {
+                              isExpanded = false;
+                              isGenerating = false;
+                              errorMessage = null;
+                              generatedReplies.clear();
+                              _instructionController.clear();
+                            });
+                            await FlutterOverlayWindow.updateFlag(
+                              OverlayFlag.defaultFlag,
+                            );
                             await FlutterOverlayWindow.closeOverlay();
                           },
                           tooltip: "Close TapReply",
