@@ -93,11 +93,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
       );
     } else {
       await FlutterOverlayWindow.updateFlag(OverlayFlag.defaultFlag);
-      await FlutterOverlayWindow.resizeOverlay(
-        WindowSize.matchParent,
-        200,
-        true,
-      );
+      await FlutterOverlayWindow.resizeOverlay(150, 150, true);
     }
   }
 
@@ -109,17 +105,27 @@ class _BubbleOverlayState extends State<BubbleOverlay>
     });
 
     try {
-      // 1. Get Screen Text Locally via Bridge! (Native Kotlin is bound to our Overlay Engine now)
-      final screenText = await AccessibilityServiceBridge.extractScreenText();
-      if (screenText == null ||
-          screenText.trim().isEmpty ||
-          screenText == "NO_ROOT_NODE") {
-        setState(() {
-          errorMessage =
-              "Could not read screen. Please open a chat app first or check Accessibility Permissions.";
-          isGenerating = false;
-        });
-        return;
+      String screenText = "";
+      final customText = _instructionController.text.trim();
+
+      // Only check screen text if the user didn't explicitly type a custom prompt
+      if (customText.isEmpty) {
+        // 1. Get Screen Text Locally via Bridge!
+        final extractedText =
+            await AccessibilityServiceBridge.extractScreenText();
+        if (extractedText == null ||
+            extractedText.trim().isEmpty ||
+            extractedText == "NO_ROOT_NODE") {
+          setState(() {
+            errorMessage =
+                "Could not read screen. Please open a chat app first or provide text manually.";
+            isGenerating = false;
+          });
+          return;
+        }
+        screenText = extractedText;
+      } else {
+        screenText = "User provided contextual input: $customText";
       }
 
       // 2. Call Gemini
@@ -127,7 +133,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
       final request = GenerationRequest(
         screenContextText: screenText,
         tone: selectedTone,
-        customInstructions: _instructionController.text,
+        customInstructions: customText.isEmpty ? null : customText,
       );
 
       final replies = await geminiService.generateReplies(request);
@@ -152,19 +158,24 @@ class _BubbleOverlayState extends State<BubbleOverlay>
   }
 
   void _handleInsert(String text) async {
-    // Inject locally via Bridge!
+    // 1. Close bubble to drop focusPointer flag
+    _toggleExpand();
+
+    // 2. Wait a moment for Android to refocus the underlying app
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    // 3. Inject text into the newly active window
     await AccessibilityServiceBridge.injectText(text);
-    _toggleExpand(); // close bubble
   }
 
   @override
   Widget build(BuildContext context) {
-    // The overlay itself takes the full width, but we align the bubble to the right
+    // The overlay itself takes the full width when expanded, but just 150x150 when collapsed.
     return Material(
       color: Colors.transparent,
       elevation: 0,
       child: Align(
-        alignment: isExpanded ? Alignment.bottomCenter : Alignment.centerRight,
+        alignment: isExpanded ? Alignment.bottomCenter : Alignment.center,
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
           transitionBuilder: (Widget child, Animation<double> animation) {
@@ -185,7 +196,6 @@ class _BubbleOverlayState extends State<BubbleOverlay>
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: Container(
-          margin: const EdgeInsets.only(right: 16),
           width: 56,
           height: 56,
           decoration: BoxDecoration(

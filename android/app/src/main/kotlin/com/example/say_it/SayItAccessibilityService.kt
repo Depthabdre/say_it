@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
 class SayItAccessibilityService : AccessibilityService() {
 
@@ -13,26 +15,40 @@ class SayItAccessibilityService : AccessibilityService() {
             private set
     }
 
+    private var registeredEngine: FlutterEngine? = null
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
         Log.d("SayItAccessibility", "Accessibility Service Connected")
-        
-        try {
-            // flutter_overlay_window caches the overlay engine with this tag
-            val engine = io.flutter.embedding.engine.FlutterEngineCache.getInstance().get("myCachedEngine")
-            if (engine != null) {
-                MainActivity.setupMethodChannel(engine, this)
-                Log.d("SayItAccessibility", "Bound MethodChannel to Overlay Engine")
-            }
-        } catch (e: Exception) {
-            Log.e("SayItAccessibility", "Failed to bind to overlay engine: " + e.message)
-        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // We can passively listen here, but typically we want to extract text 
-        // ON DEMAND when the user clicks the bubble.
+        try {
+            val engine = io.flutter.embedding.engine.FlutterEngineCache.getInstance().get("myCachedEngine")
+            if (engine != null && engine != registeredEngine) {
+                Log.d("SayItAccessibility", "New Overlay Engine found! Registering MethodChannel.")
+                val channel = MethodChannel(engine.dartExecutor.binaryMessenger, "com.example.say_it/accessibility")
+                channel.setMethodCallHandler { call, result ->
+                    when (call.method) {
+                        "isAccessibilityEnabled" -> result.success(true)
+                        "extractScreenText" -> result.success(extractScreenText())
+                        "injectText" -> {
+                            val text = call.argument<String>("text")
+                            if (text != null) {
+                                result.success(injectTextIntoActiveField(text))
+                            } else {
+                                result.error("BAD_ARGS", "Missing text", null)
+                            }
+                        }
+                        else -> result.notImplemented()
+                    }
+                }
+                registeredEngine = engine
+            }
+        } catch (e: Exception) {
+            Log.e("SayItAccessibility", "Error binding to engine: ${e.message}")
+        }
     }
 
     override fun onInterrupt() {
@@ -42,10 +58,9 @@ class SayItAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         instance = null
+        registeredEngine = null
         Log.d("SayItAccessibility", "Accessibility Service Destroyed")
     }
-
-    // --- On-Demand Methods called via MethodChannel from Flutter ---
 
     fun extractScreenText(): String {
         val rootNode = rootInActiveWindow ?: return "NO_ROOT_NODE"
@@ -74,8 +89,6 @@ class SayItAccessibilityService : AccessibilityService() {
         return success
     }
 
-    // --- Helper Methods ---
-
     private fun traverseNodeForText(node: AccessibilityNodeInfo, builder: java.lang.StringBuilder) {
         if (node.text != null && node.text.toString().isNotBlank()) {
             builder.append(node.text).append("\n")
@@ -94,7 +107,6 @@ class SayItAccessibilityService : AccessibilityService() {
 
     private fun findEditableNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
         if (node.isEditable && node.isEnabled) {
-            // Keep a copy because we might recycle the parent later
             return AccessibilityNodeInfo.obtain(node)
         }
         for (i in 0 until node.childCount) {

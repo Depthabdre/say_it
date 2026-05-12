@@ -8,7 +8,7 @@ import 'package:say_it/features/overlay_dashboard/presentation/bubble_overlay.da
 @pragma("vm:entry-point")
 void overlayMain() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Load environment variables securely for the Overlay Engine
   await dotenv.load(fileName: ".env").catchError((_) {});
 
@@ -25,7 +25,7 @@ void overlayMain() async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Load environment variables securely for the Main Engine
   await dotenv.load(fileName: ".env").catchError((_) {});
 
@@ -56,7 +56,8 @@ class MainConfigurationScreen extends StatefulWidget {
   const MainConfigurationScreen({super.key});
 
   @override
-  State<MainConfigurationScreen> createState() => _MainConfigurationScreenState();
+  State<MainConfigurationScreen> createState() =>
+      _MainConfigurationScreenState();
 }
 
 class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
@@ -71,7 +72,8 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
 
   Future<void> _checkPermissions() async {
     final hasOverlay = await FlutterOverlayWindow.isPermissionGranted();
-    final hasAccessibility = await AccessibilityServiceBridge.isAccessibilityEnabled();
+    final hasAccessibility =
+        await AccessibilityServiceBridge.isAccessibilityEnabled();
     setState(() {
       _hasOverlayPermission = hasOverlay;
       _hasAccessibilityPermission = hasAccessibility;
@@ -84,7 +86,7 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
       _hasOverlayPermission = granted ?? false;
     });
   }
-  
+
   Future<void> _requestAccessibilityPermission() async {
     await AccessibilityServiceBridge.openAccessibilitySettings();
     // User has to manually navigate back, so we re-check when app resumes.
@@ -101,11 +103,11 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
       flag: OverlayFlag.defaultFlag,
       visibility: NotificationVisibility.visibilityPublic,
       positionGravity: PositionGravity.auto,
-      height: 200,
-      width: WindowSize.matchParent,
+      height: 150,
+      width: 150,
     );
   }
-  
+
   Future<void> _closeOverlay() async {
     await FlutterOverlayWindow.closeOverlay();
   }
@@ -121,7 +123,7 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
             icon: const Icon(Icons.refresh),
             onPressed: _checkPermissions,
             tooltip: "Refresh Permissions",
-          )
+          ),
         ],
       ),
       body: Center(
@@ -133,40 +135,55 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
               // Overlay Status
               ListTile(
                 leading: Icon(
-                  _hasOverlayPermission ? Icons.check_circle : Icons.warning_amber_rounded,
+                  _hasOverlayPermission
+                      ? Icons.check_circle
+                      : Icons.warning_amber_rounded,
                   color: _hasOverlayPermission ? Colors.green : Colors.orange,
                   size: 32,
                 ),
                 title: Text("Overlay Permission"),
                 subtitle: Text("Allows the bubble to float."),
-                trailing: !_hasOverlayPermission 
-                  ? TextButton(onPressed: _requestOverlayPermission, child: Text("GRANT"))
-                  : null,
+                trailing: !_hasOverlayPermission
+                    ? TextButton(
+                        onPressed: _requestOverlayPermission,
+                        child: Text("GRANT"),
+                      )
+                    : null,
               ),
               const Divider(),
               // Accessibility Status
               ListTile(
                 leading: Icon(
-                  _hasAccessibilityPermission ? Icons.check_circle : Icons.warning_amber_rounded,
-                  color: _hasAccessibilityPermission ? Colors.green : Colors.orange,
+                  _hasAccessibilityPermission
+                      ? Icons.check_circle
+                      : Icons.warning_amber_rounded,
+                  color: _hasAccessibilityPermission
+                      ? Colors.green
+                      : Colors.orange,
                   size: 32,
                 ),
                 title: Text("Accessibility Service"),
                 subtitle: Text("Allows reading screen & injecting replies."),
-                trailing: !_hasAccessibilityPermission 
-                  ? TextButton(onPressed: _requestAccessibilityPermission, child: Text("GRANT"))
-                  : null,
+                trailing: !_hasAccessibilityPermission
+                    ? TextButton(
+                        onPressed: _requestAccessibilityPermission,
+                        child: Text("GRANT"),
+                      )
+                    : null,
               ),
-              
+
               const SizedBox(height: 32),
-              
+
               if (_hasOverlayPermission && _hasAccessibilityPermission) ...[
                 ElevatedButton.icon(
                   onPressed: _showOverlay,
                   icon: const Icon(Icons.bubble_chart),
                   label: const Text("Launch TapReply Bubble"),
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -176,12 +193,14 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
                   label: const Text("Close Bubble"),
                 ),
               ] else ...[
-                 Text(
+                Text(
                   "Please grant all permissions above to use TapReply.",
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
                 ),
-              ]
+              ],
             ],
           ),
         ),
