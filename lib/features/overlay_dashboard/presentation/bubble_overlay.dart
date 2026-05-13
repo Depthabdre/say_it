@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:say_it/features/ai_engine/domain/models.dart';
 import 'package:say_it/features/ai_engine/application/gemini_service.dart';
 import 'package:say_it/core/native_bridge/accessibility_service.dart';
@@ -22,12 +23,17 @@ class _BubbleOverlayState extends State<BubbleOverlay>
   ReplyTone selectedTone = ReplyTone.normal;
   final TextEditingController _instructionController = TextEditingController();
 
+  late stt.SpeechToText _speech;
+  bool _isListening = false;
+  bool _isAmharic = true; // Tracks the selected language
+
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
+    _speech = stt.SpeechToText();
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
@@ -81,6 +87,11 @@ class _BubbleOverlayState extends State<BubbleOverlay>
         generatedReplies.clear();
         errorMessage = null;
         isGenerating = false;
+        
+        if (_isListening) {
+          _speech.stop();
+          _isListening = false;
+        }
       }
     });
 
@@ -94,6 +105,37 @@ class _BubbleOverlayState extends State<BubbleOverlay>
     } else {
       await FlutterOverlayWindow.updateFlag(OverlayFlag.defaultFlag);
       await FlutterOverlayWindow.resizeOverlay(150, 150, true);
+    }
+  }
+
+  void _listen() async {
+    if (!_isListening) {
+      bool available = await _speech.initialize(
+        onStatus: (val) {
+          print('onStatus: $val');
+          if (val == 'done' || val == 'notListening') {
+            setState(() => _isListening = false);
+          }
+        },
+        onError: (val) {
+          print('onError: $val');
+          setState(() => _isListening = false);
+        },
+      );
+      if (available) {
+        setState(() => _isListening = true);
+        _speech.listen(
+          localeId: _isAmharic ? 'am-ET' : 'en-US', // Dynamic language selection
+          listenFor: const Duration(seconds: 30),
+          pauseFor: const Duration(seconds: 5),
+          onResult: (val) => setState(() {
+            _instructionController.text = val.recognizedWords;
+          }),
+        );
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
     }
   }
 
@@ -331,7 +373,45 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                       horizontal: 16,
                       vertical: 12,
                     ),
-                    suffixIcon: const Icon(Icons.mic, color: Colors.white54),
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          onTap: () {
+                            // If user switches language mid-speech, let them
+                            setState(() {
+                              _isAmharic = !_isAmharic;
+                            });
+                            if (_isListening) {
+                              _speech.stop();
+                              _listen(); // restart in new language
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _isAmharic ? Colors.amber.withOpacity(0.2) : Colors.blueAccent.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _isAmharic ? 'AM' : 'EN',
+                              style: TextStyle(
+                                color: _isAmharic ? Colors.amber : Colors.blueAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            _isListening ? Icons.mic : Icons.mic_none,
+                            color: _isListening ? Colors.redAccent : Colors.white54,
+                          ),
+                          onPressed: _listen,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),

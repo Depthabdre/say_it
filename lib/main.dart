@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:say_it/core/native_bridge/accessibility_service.dart';
 import 'package:say_it/features/overlay_dashboard/presentation/bubble_overlay.dart';
 
@@ -63,6 +64,7 @@ class MainConfigurationScreen extends StatefulWidget {
 class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
   bool _hasOverlayPermission = false;
   bool _hasAccessibilityPermission = false;
+  bool _hasMicPermission = false;
 
   @override
   void initState() {
@@ -74,9 +76,18 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
     final hasOverlay = await FlutterOverlayWindow.isPermissionGranted();
     final hasAccessibility =
         await AccessibilityServiceBridge.isAccessibilityEnabled();
+    final hasMic = await Permission.microphone.isGranted;
     setState(() {
       _hasOverlayPermission = hasOverlay;
       _hasAccessibilityPermission = hasAccessibility;
+      _hasMicPermission = hasMic;
+    });
+  }
+
+  Future<void> _requestMicPermission() async {
+    final status = await Permission.microphone.request();
+    setState(() {
+      _hasMicPermission = status.isGranted;
     });
   }
 
@@ -171,10 +182,31 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
                       )
                     : null,
               ),
+              const Divider(),
+              // Microphone Status
+              ListTile(
+                leading: Icon(
+                  _hasMicPermission
+                      ? Icons.check_circle
+                      : Icons.warning_amber_rounded,
+                  color: _hasMicPermission ? Colors.green : Colors.orange,
+                  size: 32,
+                ),
+                title: Text("Microphone Access"),
+                subtitle: Text("Allows voice-to-text in the dashboard."),
+                trailing: !_hasMicPermission
+                    ? TextButton(
+                        onPressed: _requestMicPermission,
+                        child: Text("GRANT"),
+                      )
+                    : null,
+              ),
 
               const SizedBox(height: 32),
 
-              if (_hasOverlayPermission && _hasAccessibilityPermission) ...[
+              if (_hasOverlayPermission &&
+                  _hasAccessibilityPermission &&
+                  _hasMicPermission) ...[
                 ElevatedButton.icon(
                   onPressed: _showOverlay,
                   icon: const Icon(Icons.bubble_chart),
