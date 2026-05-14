@@ -9,7 +9,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
-        android:label="say_it"
+        android:label="Tap Reply"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
         <activity
