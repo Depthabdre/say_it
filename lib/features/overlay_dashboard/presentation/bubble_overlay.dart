@@ -128,9 +128,17 @@ class _BubbleOverlayState extends State<BubbleOverlay>
           localeId: _isAmharic ? 'am-ET' : 'en-US', // Dynamic language selection
           listenFor: const Duration(seconds: 30),
           pauseFor: const Duration(seconds: 5),
-          onResult: (val) => setState(() {
-            _instructionController.text = val.recognizedWords;
-          }),
+          onResult: (val) {
+            setState(() {
+              if (val.recognizedWords.isNotEmpty) {
+                _instructionController.text = val.recognizedWords;
+                // Move cursor to the end to ensure UI updates properly
+                _instructionController.selection = TextSelection.fromPosition(
+                  TextPosition(offset: _instructionController.text.length),
+                );
+              }
+            });
+          },
         );
       }
     } else {
