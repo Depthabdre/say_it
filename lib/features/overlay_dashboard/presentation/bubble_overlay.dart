@@ -112,13 +112,13 @@ class _BubbleOverlayState extends State<BubbleOverlay>
     if (!_isListening) {
       bool available = await _speech.initialize(
         onStatus: (val) {
-          print('onStatus: $val');
+          debugPrint('onStatus: $val');
           if (val == 'done' || val == 'notListening') {
             setState(() => _isListening = false);
           }
         },
         onError: (val) {
-          print('onError: $val');
+          debugPrint('onError: $val');
           setState(() => _isListening = false);
         },
       );
@@ -263,7 +263,13 @@ class _BubbleOverlayState extends State<BubbleOverlay>
               ),
             ],
           ),
-          child: const Icon(Icons.auto_awesome, color: Colors.white, size: 28),
+          child: Image.asset(
+            'assets/IconTap.png',
+            width: 40,
+            height: 40,
+            errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.auto_awesome, color: Colors.white, size: 28),
+          ),
         ),
       ),
     );
@@ -398,7 +404,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: _isAmharic ? Colors.amber.withOpacity(0.2) : Colors.blueAccent.withOpacity(0.2),
+                              color: _isAmharic ? Colors.amber.withValues(alpha: 0.2) : Colors.blueAccent.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(

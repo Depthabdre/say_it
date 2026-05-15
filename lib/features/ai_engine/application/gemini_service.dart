@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:google_generative_ai/google_generative_ai.dart' hide ServerException;
 import 'package:say_it/features/ai_engine/domain/models.dart';
+import 'package:say_it/core/error/exceptions.dart';
 
 class GeminiService {
   static const String _modelName = 'gemini-2.5-flash';
@@ -11,7 +12,7 @@ class GeminiService {
   GeminiService() {
     final apiKey = dotenv.env['GEMINI_API_KEY'];
     if (apiKey == null || apiKey.isEmpty) {
-      throw Exception('GEMINI_API_KEY not found in .env file.');
+      throw UnknownException(message: 'GEMINI_API_KEY not found in .env file.');
     }
 
     // We use gemini-1.5-flash as it is extremely fast and optimized for free-tier text tasks.
@@ -37,7 +38,7 @@ class GeminiService {
       final responseText = response.text;
 
       if (responseText == null || responseText.isEmpty) {
-        throw Exception("Gemini returned an empty response.");
+        throw AiEngineException(message: 'Gemini returned an empty response.');
       }
 
       // Parse the JSON array returned by Gemini
@@ -46,11 +47,11 @@ class GeminiService {
     } catch (e) {
       // It's important to handle 429 Too Many Requests gracefully on the free tier.
       if (e.toString().contains('429')) {
-        throw Exception(
-          'Free tier rate limit reached. Please wait a moment and try again.',
+        throw ServerException(
+          message: 'Free tier rate limit reached. Please wait a moment and try again.',
         );
       }
-      throw Exception('Failed to generate replies: $e');
+      throw AiEngineException(message: 'Failed to generate replies: $e');
     }
   }
 
