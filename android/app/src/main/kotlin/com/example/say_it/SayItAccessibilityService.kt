@@ -63,11 +63,25 @@ class SayItAccessibilityService : AccessibilityService() {
     }
 
     fun extractScreenText(): String {
-        val rootNode = rootInActiveWindow ?: return "NO_ROOT_NODE"
+        val windowList = windows
+        if (windowList.isNullOrEmpty()) {
+            return "NO_ROOT_NODE"
+        }
+
         val stringBuilder = java.lang.StringBuilder()
-        traverseNodeForText(rootNode, stringBuilder)
-        rootNode.recycle()
-        return stringBuilder.toString()
+
+        for (window in windowList) {
+            val rootNode = window.root
+            if (rootNode != null) {
+                // Skip our own app's windows (the overlay) so we only read the underlying app
+                if (rootNode.packageName?.toString() != "com.example.say_it") {
+                    traverseNodeForText(rootNode, stringBuilder)
+                }
+                rootNode.recycle()
+            }
+        }
+
+        return stringBuilder.toString().trim().ifEmpty { "NO_ROOT_NODE" }
     }
 
     fun injectTextIntoActiveField(textToInject: String): Boolean {

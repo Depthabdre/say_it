@@ -174,6 +174,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
           return;
         }
         screenText = extractedText;
+        debugPrint('Captured Screen Context: \\n"""\\n$screenText\\n"""');
       } else {
         screenText = "User provided contextual input: $customText";
       }

@@ -15,7 +15,7 @@ class GeminiService {
       throw UnknownException(message: 'GEMINI_API_KEY not found in .env file.');
     }
 
-    // We use gemini-1.5-flash as it is extremely fast and optimized for free-tier text tasks.
+  
     _model = GenerativeModel(
       model: _modelName,
       apiKey: apiKey,
