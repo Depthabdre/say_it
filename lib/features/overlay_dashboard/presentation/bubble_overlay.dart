@@ -484,58 +484,42 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                 const SizedBox(height: 16),
 
                 // Tone Selectors
-                ScrollConfiguration(
-                  // This behavior allows you to scroll horizontally using a mouse click-and-drag on an emulator
-                  behavior: ScrollConfiguration.of(context).copyWith(
-                    dragDevices: {
-                      PointerDeviceKind.touch,
-                      PointerDeviceKind.mouse,
-                      PointerDeviceKind.trackpad,
-                    },
-                  ),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()), // Ensures it always allows scrolling
-                    child: Row(
-                      children: ReplyTone.values.map((tone) {
-                      final isSelected = selectedTone == tone;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(tone.displayName),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            if (selected) setState(() => selectedTone = tone);
-                          },
-                          showCheckmark: false, // Modern, clean look
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          selectedColor: const Color(0xFF6366F1), // Solid modern Indigo
-                          backgroundColor: const Color(0xFF1E2028), // Dark secondary surface
-                          labelStyle: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF94A3B8), // Readable muted text
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                            fontSize: 13,
-                            letterSpacing: 0.3,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(100), // fully rounded
-                            side: BorderSide(
-                              width: 1.5,
-                              color: isSelected
-                                  ? const Color(0xFF818CF8) // Lighter indigo border
-                                  : const Color(0xFF2D3139), // Subtle dark border
-                            ),
-                          ),
+                // Tone Selectors (Updated to Wrap to prevent drag conflicts)
+                Wrap(
+                  spacing: 8.0,    // Horizontal gap between chips
+                  runSpacing: 8.0, // Vertical gap between rows if they wrap
+                  children: ReplyTone.values.map((tone) {
+                    final isSelected = selectedTone == tone;
+                    return ChoiceChip(
+                      label: Text(tone.displayName),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        if (selected) setState(() => selectedTone = tone);
+                      },
+                      showCheckmark: false, // Modern, clean look
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      selectedColor: const Color(0xFF6366F1), // Solid modern Indigo
+                      backgroundColor: const Color(0xFF1E2028), // Dark secondary surface
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF94A3B8), // Readable muted text
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        fontSize: 13,
+                        letterSpacing: 0.3,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(100), // fully rounded
+                        side: BorderSide(
+                          width: 1.5,
+                          color: isSelected
+                              ? const Color(0xFF818CF8) // Lighter indigo border
+                              : const Color(0xFF2D3139), // Subtle dark border
                         ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-                ), // Closes ScrollConfiguration
+                      ),
+                    );
+                  }).toList(),
+                ),// Closes ScrollConfiguration
                 const SizedBox(height: 24),
 
                 // Generate Button or Results
