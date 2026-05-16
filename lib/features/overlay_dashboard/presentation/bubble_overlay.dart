@@ -27,6 +27,11 @@ class _BubbleOverlayState extends State<BubbleOverlay>
   bool _isListening = false;
   bool _isAmharic = true; // Tracks the selected language
 
+  // --- NEW VARIABLES FOR CONTINUOUS LISTENING ---
+  bool _forceStop = false;
+  String _previousText = "";
+  // ----------------------------------------------
+
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
@@ -89,6 +94,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
         isGenerating = false;
         
         if (_isListening) {
+          _forceStop = true; // Prevent the auto-restart loop
           _speech.stop();
           _isListening = false;
         }
@@ -110,49 +116,85 @@ class _BubbleOverlayState extends State<BubbleOverlay>
 
   void _listen() async {
     if (!_isListening) {
+      _forceStop = false; // Reset the flag
+      _previousText = _instructionController.text; // Save what is currently in the box
+
       bool available = await _speech.initialize(
         onStatus: (val) {
           debugPrint('onStatus: $val');
+          
+          // Android timed out or detected silence!
           if (val == 'done' || val == 'notListening') {
-            setState(() => _isListening = false);
+            if (!_forceStop) {
+              // Save the text and instantly restart the microphone
+              _previousText = _instructionController.text;
+              _startActiveListening(); 
+            } else {
+              setState(() => _isListening = false);
+            }
           }
         },
         onError: (val) {
           debugPrint('onError: $val');
-          setState(() => _isListening = false);
+          // Restart on timeout error too, unless user pressed Stop
+          if (!_forceStop) {
+             _previousText = _instructionController.text;
+             _startActiveListening();
+          } else {
+             setState(() => _isListening = false);
+          }
         },
       );
+
       if (available) {
         setState(() => _isListening = true);
-        _speech.listen(
-          localeId: _isAmharic ? 'am-ET' : 'en-US', // Dynamic language selection
-          listenFor: const Duration(seconds: 30),
-          pauseFor: const Duration(seconds: 5),
-          onResult: (val) {
-            setState(() {
-              if (val.recognizedWords.isNotEmpty) {
-                _instructionController.text = val.recognizedWords;
-                // Move cursor to the end to ensure UI updates properly
-                _instructionController.selection = TextSelection.fromPosition(
-                  TextPosition(offset: _instructionController.text.length),
-                );
-              }
-            });
-          },
-        );
+        _startActiveListening();
       }
     } else {
+      // User manually pressed the Stop (Mic) button
+      _forceStop = true; 
       setState(() => _isListening = false);
       _speech.stop();
     }
   }
 
+  // The actual listening logic separated so it can loop without wiping the UI
+  void _startActiveListening() {
+    _speech.listen(
+      localeId: _isAmharic ? 'am-ET' : 'en-US',
+      listenFor: const Duration(seconds: 30), 
+      pauseFor: const Duration(seconds: 5),
+      onResult: (val) {
+        setState(() {
+          if (val.recognizedWords.isNotEmpty) {
+            // Combine old sentences with newly spoken words
+            _instructionController.text = "$_previousText ${val.recognizedWords}".trim();
+            
+            // Move cursor to the end
+            _instructionController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _instructionController.text.length),
+            );
+          }
+        });
+      },
+    );
+  }
+
   void _handleGenerate() async {
+
+    // Auto-stop the microphone if they hit "Generate" while still speaking!
+    if (_isListening) {
+      _forceStop = true;
+      _speech.stop();
+      _isListening = false; // Don't use setState here since we call it right below
+    }
+    
     setState(() {
       isGenerating = true;
       errorMessage = null;
       generatedReplies.clear();
     });
+
 
     try {
       String screenText = "";
@@ -174,7 +216,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
           return;
         }
         screenText = extractedText;
-        debugPrint('Captured Screen Context: \\n"""\\n$screenText\\n"""');
+        debugPrint('Captured Screen Context: \n"""\n$screenText\n"""');
       } else {
         screenText = "User provided contextual input: $customText";
       }
@@ -347,14 +389,19 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                           ),
                           onPressed: () async {
                             // Reset state BEFORE closing so next launch is clean!
-                            // Because the flutter engine is cached by the plugin,
-                            // state persists on reopen.
                             setState(() {
                               isExpanded = false;
                               isGenerating = false;
                               errorMessage = null;
                               generatedReplies.clear();
                               _instructionController.clear();
+                              
+                              // Safely stop the listening loop when closing
+                              if (_isListening) {
+                                _forceStop = true;
+                                _speech.stop();
+                                _isListening = false;
+                              }
                             });
                             await FlutterOverlayWindow.updateFlag(
                               OverlayFlag.defaultFlag,
@@ -398,8 +445,13 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                               _isAmharic = !_isAmharic;
                             });
                             if (_isListening) {
+                              _forceStop = true; // Stop the old loop safely
                               _speech.stop();
-                              _listen(); // restart in new language
+                              
+                              // Wait a tiny bit for the stop to process, then start new loop in new language
+                              Future.delayed(const Duration(milliseconds: 150), () {
+                                _listen(); 
+                              });
                             }
                           },
                           child: Container(
