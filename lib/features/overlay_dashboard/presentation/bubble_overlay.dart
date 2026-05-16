@@ -432,10 +432,20 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                 const SizedBox(height: 16),
 
                 // Tone Selectors
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: ReplyTone.values.map((tone) {
+                ScrollConfiguration(
+                  // This behavior allows you to scroll horizontally using a mouse click-and-drag on an emulator
+                  behavior: ScrollConfiguration.of(context).copyWith(
+                    dragDevices: {
+                      PointerDeviceKind.touch,
+                      PointerDeviceKind.mouse,
+                      PointerDeviceKind.trackpad,
+                    },
+                  ),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()), // Ensures it always allows scrolling
+                    child: Row(
+                      children: ReplyTone.values.map((tone) {
                       final isSelected = selectedTone == tone;
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
@@ -445,22 +455,27 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                           onSelected: (selected) {
                             if (selected) setState(() => selectedTone = tone);
                           },
-                          selectedColor: const Color(0x336366F1), // 0.2 opacity
-                          backgroundColor: Colors.transparent,
+                          showCheckmark: false, // Modern, clean look
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          selectedColor: const Color(0xFF6366F1), // Solid modern Indigo
+                          backgroundColor: const Color(0xFF1E2028), // Dark secondary surface
                           labelStyle: TextStyle(
                             color: isSelected
-                                ? const Color(0xFF818CF8)
-                                : Colors.white60,
+                                ? Colors.white
+                                : const Color(0xFF94A3B8), // Readable muted text
                             fontWeight: isSelected
                                 ? FontWeight.w600
-                                : FontWeight.normal,
+                                : FontWeight.w500,
+                            fontSize: 13,
+                            letterSpacing: 0.3,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(100), // fully rounded
                             side: BorderSide(
+                              width: 1.5,
                               color: isSelected
-                                  ? const Color(0xFF6366F1)
-                                  : const Color(0x3DFFFFFF), // 0.24 opacity
+                                  ? const Color(0xFF818CF8) // Lighter indigo border
+                                  : const Color(0xFF2D3139), // Subtle dark border
                             ),
                           ),
                         ),
@@ -468,6 +483,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                     }).toList(),
                   ),
                 ),
+                ), // Closes ScrollConfiguration
                 const SizedBox(height: 24),
 
                 // Generate Button or Results
