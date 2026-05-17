@@ -307,7 +307,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
             ],
           ),
           child: Image.asset(
-            'assets/IconTap.png',
+            'assets/IconTap2.png',
             width: 40,
             height: 40,
             errorBuilder: (context, error, stackTrace) =>

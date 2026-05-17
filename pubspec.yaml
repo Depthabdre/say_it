@@ -56,9 +56,10 @@ dev_dependencies:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/IconTap.png"
+  image_path: "assets/IconTap2.png"
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/IconTap.png"
+  adaptive_icon_foreground: "assets/IconTap2.png"
+  remove_alpha_ios: true
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -76,6 +77,7 @@ flutter:
     - .env
     - .env.example
     - assets/IconTap.png
+    - assets/IconTap2.png
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 
