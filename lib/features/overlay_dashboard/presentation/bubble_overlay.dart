@@ -1,10 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+
 import 'package:say_it/features/ai_engine/domain/models.dart';
-import 'package:say_it/features/ai_engine/application/gemini_service.dart';
 import 'package:say_it/core/native_bridge/accessibility_service.dart';
+import 'package:say_it/features/overlay_dashboard/presentation/bloc/bubble_overlay_bloc.dart';
 
 class BubbleOverlay extends StatefulWidget {
   const BubbleOverlay({super.key});
@@ -15,17 +17,9 @@ class BubbleOverlay extends StatefulWidget {
 
 class _BubbleOverlayState extends State<BubbleOverlay>
     with SingleTickerProviderStateMixin {
-  bool isExpanded = false;
-  bool isGenerating = false;
-  String? errorMessage;
-  List<String> generatedReplies = [];
-
-  ReplyTone selectedTone = ReplyTone.normal;
   final TextEditingController _instructionController = TextEditingController();
 
   late stt.SpeechToText _speech;
-  bool _isListening = false;
-  bool _isAmharic = true; // Tracks the selected language
 
   // --- NEW VARIABLES FOR CONTINUOUS LISTENING ---
   bool _forceStop = false;
@@ -54,24 +48,13 @@ class _BubbleOverlayState extends State<BubbleOverlay>
       if (!mounted) return;
       if (event is Map) {
         if (event['action'] == 'REPLIES_READY') {
-          setState(() {
-            isGenerating = false;
-            errorMessage = null;
-            generatedReplies = List<String>.from(event['replies']);
-          });
-          // Resize larger to fit cards
-          if (isExpanded) {
-            FlutterOverlayWindow.resizeOverlay(
-              WindowSize.matchParent,
-              600,
-              true,
-            );
-          }
+          context.read<BubbleOverlayBloc>().add(
+            RepliesReceivedEvent(List<String>.from(event['replies'])),
+          );
         } else if (event['error'] != null) {
-          setState(() {
-            isGenerating = false;
-            errorMessage = event['error'];
-          });
+          context.read<BubbleOverlayBloc>().add(
+            ErrorReceivedEvent(event['error']),
+          );
         }
       }
     });
@@ -84,53 +67,27 @@ class _BubbleOverlayState extends State<BubbleOverlay>
     super.dispose();
   }
 
-  void _toggleExpand() async {
-    setState(() {
-      isExpanded = !isExpanded;
-      if (!isExpanded) {
-        // Reset state when closing
-        generatedReplies.clear();
-        errorMessage = null;
-        isGenerating = false;
-        
-        if (_isListening) {
-          _forceStop = true; // Prevent the auto-restart loop
-          _speech.stop();
-          _isListening = false;
-        }
-      }
-    });
-
-    if (isExpanded) {
-      await FlutterOverlayWindow.updateFlag(OverlayFlag.focusPointer);
-      await FlutterOverlayWindow.resizeOverlay(
-        WindowSize.matchParent,
-        450,
-        true,
-      );
-    } else {
-      await FlutterOverlayWindow.updateFlag(OverlayFlag.defaultFlag);
-      await FlutterOverlayWindow.resizeOverlay(150, 150, true);
-    }
-  }
-
   void _listen() async {
-    if (!_isListening) {
+    final bloc = context.read<BubbleOverlayBloc>();
+    final state = bloc.state;
+
+    if (!state.isListening) {
       _forceStop = false; // Reset the flag
-      _previousText = _instructionController.text; // Save what is currently in the box
+      _previousText =
+          _instructionController.text; // Save what is currently in the box
 
       bool available = await _speech.initialize(
         onStatus: (val) {
           debugPrint('onStatus: $val');
-          
+
           // Android timed out or detected silence!
           if (val == 'done' || val == 'notListening') {
             if (!_forceStop) {
               // Save the text and instantly restart the microphone
               _previousText = _instructionController.text;
-              _startActiveListening(); 
+              _startActiveListening(state.isAmharic);
             } else {
-              setState(() => _isListening = false);
+              bloc.add(const ListeningStatusChangedEvent(false));
             }
           }
         },
@@ -138,154 +95,102 @@ class _BubbleOverlayState extends State<BubbleOverlay>
           debugPrint('onError: $val');
           // Restart on timeout error too, unless user pressed Stop
           if (!_forceStop) {
-             _previousText = _instructionController.text;
-             _startActiveListening();
+            _previousText = _instructionController.text;
+            _startActiveListening(state.isAmharic);
           } else {
-             setState(() => _isListening = false);
+            bloc.add(const ListeningStatusChangedEvent(false));
           }
         },
       );
 
       if (available) {
-        setState(() => _isListening = true);
-        _startActiveListening();
+        bloc.add(const ListeningStatusChangedEvent(true));
+        _startActiveListening(state.isAmharic);
       }
     } else {
       // User manually pressed the Stop (Mic) button
-      _forceStop = true; 
-      setState(() => _isListening = false);
+      _forceStop = true;
+      bloc.add(const ListeningStatusChangedEvent(false));
       _speech.stop();
     }
   }
 
-  // The actual listening logic separated so it can loop without wiping the UI
-  void _startActiveListening() {
+  void _startActiveListening(bool isAmharic) {
     _speech.listen(
-      localeId: _isAmharic ? 'am-ET' : 'en-US',
-      listenFor: const Duration(seconds: 30), 
+      localeId: isAmharic ? 'am-ET' : 'en-US',
+      listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 5),
       onResult: (val) {
-        setState(() {
-          if (val.recognizedWords.isNotEmpty) {
-            // Combine old sentences with newly spoken words
-            _instructionController.text = "$_previousText ${val.recognizedWords}".trim();
-            
-            // Move cursor to the end
-            _instructionController.selection = TextSelection.fromPosition(
-              TextPosition(offset: _instructionController.text.length),
-            );
-          }
-        });
+        if (!mounted) return;
+        if (val.recognizedWords.isNotEmpty) {
+          _instructionController.text = "$_previousText ${val.recognizedWords}"
+              .trim();
+
+          _instructionController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _instructionController.text.length),
+          );
+        }
       },
     );
   }
 
-  void _handleGenerate() async {
+  void _handleGenerate() {
+    final bloc = context.read<BubbleOverlayBloc>();
 
-    // Auto-stop the microphone if they hit "Generate" while still speaking!
-    if (_isListening) {
+    if (bloc.state.isListening) {
       _forceStop = true;
       _speech.stop();
-      _isListening = false; // Don't use setState here since we call it right below
+      bloc.add(const ListeningStatusChangedEvent(false));
     }
-    
-    setState(() {
-      isGenerating = true;
-      errorMessage = null;
-      generatedReplies.clear();
-    });
 
-
-    try {
-      String screenText = "";
-      final customText = _instructionController.text.trim();
-
-      // Only check screen text if the user didn't explicitly type a custom prompt
-      if (customText.isEmpty) {
-        // 1. Get Screen Text Locally via Bridge!
-        final extractedText =
-            await AccessibilityServiceBridge.extractScreenText();
-        if (extractedText == null ||
-            extractedText.trim().isEmpty ||
-            extractedText == "NO_ROOT_NODE") {
-          setState(() {
-            errorMessage =
-                "Could not read screen. Please open a chat app first or provide text manually.";
-            isGenerating = false;
-          });
-          return;
-        }
-        screenText = extractedText;
-        debugPrint('Captured Screen Context: \n"""\n$screenText\n"""');
-      } else {
-        screenText = "User provided contextual input: $customText";
-      }
-
-      // 2. Call Gemini
-      final geminiService = GeminiService();
-      final request = GenerationRequest(
-        screenContextText: screenText,
-        tone: selectedTone,
-        customInstructions: customText.isEmpty ? null : customText,
-      );
-
-      final replies = await geminiService.generateReplies(request);
-
-      if (mounted) {
-        setState(() {
-          generatedReplies = replies;
-          isGenerating = false;
-        });
-        if (isExpanded) {
-          FlutterOverlayWindow.resizeOverlay(WindowSize.matchParent, 600, true);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          errorMessage = e.toString();
-          isGenerating = false;
-        });
-      }
-    }
+    bloc.add(
+      GenerateRepliesEvent(customText: _instructionController.text.trim()),
+    );
   }
 
   void _handleInsert(String text) async {
-    // 1. Close bubble to drop focusPointer flag
-    _toggleExpand();
+    final bloc = context.read<BubbleOverlayBloc>();
+    if (bloc.state.isExpanded) {
+      bloc.add(ToggleExpandEvent());
+    }
 
-    // 2. Wait a moment for Android to refocus the underlying app
+    // Wait a moment for Android to refocus the underlying app
     await Future.delayed(const Duration(milliseconds: 300));
-
-    // 3. Inject text into the newly active window
     await AccessibilityServiceBridge.injectText(text);
   }
 
   @override
   Widget build(BuildContext context) {
-    // The overlay itself takes the full width when expanded, but just 150x150 when collapsed.
-    return Material(
-      color: Colors.transparent,
-      elevation: 0,
-      child: Align(
-        alignment: isExpanded ? Alignment.bottomCenter : Alignment.center,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          transitionBuilder: (Widget child, Animation<double> animation) {
-            return ScaleTransition(scale: animation, child: child);
-          },
-          child: isExpanded
-              ? _buildExpandedDashboard()
-              : _buildCollapsedBubble(),
-        ),
-      ),
+    return BlocBuilder<BubbleOverlayBloc, BubbleOverlayState>(
+      builder: (context, state) {
+        return Material(
+          color: Colors.transparent,
+          elevation: 0,
+          child: Align(
+            alignment: state.isExpanded
+                ? Alignment.bottomCenter
+                : Alignment.center,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return ScaleTransition(scale: animation, child: child);
+              },
+              child: state.isExpanded
+                  ? _buildExpandedDashboard(state)
+                  : _buildCollapsedBubble(state),
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildCollapsedBubble() {
+  Widget _buildCollapsedBubble(BubbleOverlayState state) {
     return GestureDetector(
       key: const ValueKey('collapsed'),
-      onTap: _toggleExpand,
+      onTap: () {
+        context.read<BubbleOverlayBloc>().add(ToggleExpandEvent());
+      },
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: Container(
@@ -298,9 +203,9 @@ class _BubbleOverlayState extends State<BubbleOverlay>
               end: Alignment.bottomRight,
             ),
             shape: BoxShape.circle,
-            boxShadow: [
+            boxShadow: const [
               BoxShadow(
-                color: const Color(0x666366F1), // 0.4 opacity
+                color: Color(0x666366F1),
                 blurRadius: 12,
                 spreadRadius: 2,
               ),
@@ -318,7 +223,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
     );
   }
 
-  Widget _buildExpandedDashboard() {
+  Widget _buildExpandedDashboard(BubbleOverlayState state) {
     return ClipRRect(
       key: const ValueKey('expanded'),
       borderRadius: BorderRadius.circular(24),
@@ -329,14 +234,11 @@ class _BubbleOverlayState extends State<BubbleOverlay>
           margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xD91E1E2E), // 0.85 opacity
+            color: const Color(0xD91E1E2E),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0x1AFFFFFF)), // 0.1 opacity
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0x4D000000), // 0.3 opacity
-                blurRadius: 20,
-              ),
+            border: Border.all(color: const Color(0x1AFFFFFF)),
+            boxShadow: const [
+              BoxShadow(color: Color(0x4D000000), blurRadius: 20),
             ],
           ),
           child: SingleChildScrollView(
@@ -375,7 +277,15 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                             color: Colors.white54,
                             size: 28,
                           ),
-                          onPressed: _toggleExpand,
+                          onPressed: () {
+                            if (state.isListening) {
+                              _forceStop = true;
+                              _speech.stop();
+                            }
+                            context.read<BubbleOverlayBloc>().add(
+                              ToggleExpandEvent(),
+                            );
+                          },
                           tooltip: "Minimize to bubble",
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
@@ -388,21 +298,14 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                             size: 24,
                           ),
                           onPressed: () async {
-                            // Reset state BEFORE closing so next launch is clean!
-                            setState(() {
-                              isExpanded = false;
-                              isGenerating = false;
-                              errorMessage = null;
-                              generatedReplies.clear();
-                              _instructionController.clear();
-                              
-                              // Safely stop the listening loop when closing
-                              if (_isListening) {
-                                _forceStop = true;
-                                _speech.stop();
-                                _isListening = false;
-                              }
-                            });
+                            if (state.isListening) {
+                              _forceStop = true;
+                              _speech.stop();
+                            }
+                            _instructionController.clear();
+                            context.read<BubbleOverlayBloc>().add(
+                              ResetBubbleEvent(),
+                            );
                             await FlutterOverlayWindow.updateFlag(
                               OverlayFlag.defaultFlag,
                             );
@@ -424,9 +327,9 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     hintText: "Optional: Tell them I'm running late...",
-                    hintStyle: TextStyle(color: Colors.white38),
+                    hintStyle: const TextStyle(color: Colors.white38),
                     filled: true,
-                    fillColor: const Color(0x4D000000), // 0.3 opacity
+                    fillColor: const Color(0x4D000000),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -440,30 +343,38 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                       children: [
                         InkWell(
                           onTap: () {
-                            // If user switches language mid-speech, let them
-                            setState(() {
-                              _isAmharic = !_isAmharic;
-                            });
-                            if (_isListening) {
-                              _forceStop = true; // Stop the old loop safely
+                            context.read<BubbleOverlayBloc>().add(
+                              ToggleLanguageEvent(),
+                            );
+                            if (state.isListening) {
+                              _forceStop = true;
                               _speech.stop();
-                              
-                              // Wait a tiny bit for the stop to process, then start new loop in new language
-                              Future.delayed(const Duration(milliseconds: 150), () {
-                                _listen(); 
-                              });
+
+                              Future.delayed(
+                                const Duration(milliseconds: 150),
+                                () {
+                                  _listen();
+                                },
+                              );
                             }
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: _isAmharic ? Colors.amber.withValues(alpha: 0.2) : Colors.blueAccent.withValues(alpha: 0.2),
+                              color: state.isAmharic
+                                  ? Colors.amber.withAlpha(51)
+                                  : Colors.blueAccent.withAlpha(51),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              _isAmharic ? 'AM' : 'EN',
+                              state.isAmharic ? 'AM' : 'EN',
                               style: TextStyle(
-                                color: _isAmharic ? Colors.amber : Colors.blueAccent,
+                                color: state.isAmharic
+                                    ? Colors.amber
+                                    : Colors.blueAccent,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),
@@ -472,8 +383,10 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                         ),
                         IconButton(
                           icon: Icon(
-                            _isListening ? Icons.mic : Icons.mic_none,
-                            color: _isListening ? Colors.redAccent : Colors.white54,
+                            state.isListening ? Icons.mic : Icons.mic_none,
+                            color: state.isListening
+                                ? Colors.redAccent
+                                : Colors.white54,
                           ),
                           onPressed: _listen,
                         ),
@@ -484,46 +397,54 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                 const SizedBox(height: 16),
 
                 // Tone Selectors
-                // Tone Selectors (Updated to Wrap to prevent drag conflicts)
                 Wrap(
-                  spacing: 8.0,    // Horizontal gap between chips
-                  runSpacing: 8.0, // Vertical gap between rows if they wrap
+                  spacing: 8.0,
+                  runSpacing: 8.0,
                   children: ReplyTone.values.map((tone) {
-                    final isSelected = selectedTone == tone;
+                    final isSelected = state.selectedTone == tone;
                     return ChoiceChip(
                       label: Text(tone.displayName),
                       selected: isSelected,
                       onSelected: (selected) {
-                        if (selected) setState(() => selectedTone = tone);
+                        if (selected) {
+                          context.read<BubbleOverlayBloc>().add(
+                            ChangeToneEvent(tone),
+                          );
+                        }
                       },
-                      showCheckmark: false, // Modern, clean look
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      selectedColor: const Color(0xFF6366F1), // Solid modern Indigo
-                      backgroundColor: const Color(0xFF1E2028), // Dark secondary surface
+                      showCheckmark: false,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      selectedColor: const Color(0xFF6366F1),
+                      backgroundColor: const Color(0xFF1E2028),
                       labelStyle: TextStyle(
                         color: isSelected
                             ? Colors.white
-                            : const Color(0xFF94A3B8), // Readable muted text
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            : const Color(0xFF94A3B8),
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                         fontSize: 13,
                         letterSpacing: 0.3,
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100), // fully rounded
+                        borderRadius: BorderRadius.circular(100),
                         side: BorderSide(
                           width: 1.5,
                           color: isSelected
-                              ? const Color(0xFF818CF8) // Lighter indigo border
-                              : const Color(0xFF2D3139), // Subtle dark border
+                              ? const Color(0xFF818CF8)
+                              : const Color(0xFF2D3139),
                         ),
                       ),
                     );
                   }).toList(),
-                ),// Closes ScrollConfiguration
+                ),
                 const SizedBox(height: 24),
 
                 // Generate Button or Results
-                if (isGenerating)
+                if (state.isGenerating)
                   const Center(
                     child: Padding(
                       padding: EdgeInsets.all(16.0),
@@ -532,26 +453,24 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                       ),
                     ),
                   )
-                else if (errorMessage != null)
+                else if ((state.errorMessage?.isNotEmpty ?? false))
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0x1AF44336), // red 0.1
+                      color: const Color(0x1AF44336),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0x4DF44336),
-                      ), // red 0.3
+                      border: Border.all(color: const Color(0x4DF44336)),
                     ),
                     child: Text(
-                      errorMessage!,
+                      state.errorMessage ?? "",
                       style: const TextStyle(color: Colors.redAccent),
                       textAlign: TextAlign.center,
                     ),
                   )
-                else if (generatedReplies.isNotEmpty)
+                else if (state.generatedReplies.isNotEmpty)
                   Column(
-                    children: generatedReplies.map((reply) {
+                    children: state.generatedReplies.map((reply) {
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.symmetric(
@@ -559,11 +478,9 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0x0DFFFFFF), // white 0.05
+                          color: const Color(0x0DFFFFFF),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(0x1AFFFFFF),
-                          ), // white 0.1
+                          border: Border.all(color: const Color(0x1AFFFFFF)),
                         ),
                         child: Row(
                           children: [

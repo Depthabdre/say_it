@@ -3,7 +3,10 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:say_it/core/native_bridge/accessibility_service.dart';
+import 'package:say_it/features/ai_engine/application/gemini_service.dart';
 import 'package:say_it/features/overlay_dashboard/presentation/bubble_overlay.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:say_it/features/overlay_dashboard/presentation/bloc/bubble_overlay_bloc.dart';
 
 // The entry point for the overlay window.
 @pragma("vm:entry-point")
@@ -14,11 +17,14 @@ void overlayMain() async {
   await dotenv.load(fileName: ".env").catchError((_) {});
 
   runApp(
-    const MaterialApp(
+    MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
         backgroundColor: Colors.transparent,
-        body: BubbleOverlay(),
+        body: BlocProvider(
+          create: (context) => BubbleOverlayBloc(geminiService: GeminiService()),
+          child: const BubbleOverlay(),
+        ),
       ),
     ),
   );
