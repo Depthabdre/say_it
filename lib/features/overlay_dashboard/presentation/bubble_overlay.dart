@@ -193,30 +193,14 @@ class _BubbleOverlayState extends State<BubbleOverlay>
       },
       child: ScaleTransition(
         scale: _scaleAnimation,
-        child: Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF6366F1), Color(0xFFA855F7)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            shape: BoxShape.circle,
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x666366F1),
-                blurRadius: 12,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
+        child: SizedBox(
+          width: 68,
+          height: 68,
           child: Image.asset(
-            'assets/IconTap2.png',
-            width: 40,
-            height: 40,
+            'assets/TapReplyOverLayF.png',
+            fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) =>
-                const Icon(Icons.auto_awesome, color: Colors.white, size: 28),
+                const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
           ),
         ),
       ),
