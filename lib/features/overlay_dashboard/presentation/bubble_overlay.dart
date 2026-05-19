@@ -315,6 +315,9 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                 // Input Field
                 TextField(
                   controller: _instructionController,
+                  maxLines: 4,
+                  minLines: 1,
+                  keyboardType: TextInputType.multiline,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     hintText: "Optional: Tell them I'm running late...",
