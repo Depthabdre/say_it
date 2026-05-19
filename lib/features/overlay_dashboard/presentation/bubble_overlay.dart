@@ -194,10 +194,10 @@ class _BubbleOverlayState extends State<BubbleOverlay>
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: SizedBox(
-          width: 68,
-          height: 68,
+          width: 80, 
+          height: 80,
           child: Image.asset(
-            'assets/TapReplyOverLayF.png',
+            'assets/TapReplyOverLayF2.png',
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) =>
                 const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
@@ -208,14 +208,21 @@ class _BubbleOverlayState extends State<BubbleOverlay>
   }
 
   Widget _buildExpandedDashboard(BubbleOverlayState state) {
-    return ClipRRect(
-      key: const ValueKey('expanded'),
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.95,
-          margin: const EdgeInsets.only(bottom: 16),
+    final screenWidth = MediaQuery.of(context).size.width;
+    final containerWidth = screenWidth > 350 ? screenWidth * 0.95 : 350.0;
+
+    return OverflowBox(
+      maxHeight: double.infinity,
+      maxWidth: double.infinity,
+      alignment: Alignment.bottomCenter,
+      child: ClipRRect(
+        key: const ValueKey('expanded'),
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+          child: Container(
+            width: containerWidth,
+            margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: const Color(0xD91E1E2E),
@@ -518,6 +525,6 @@ class _BubbleOverlayState extends State<BubbleOverlay>
           ),
         ),
       ),
-    );
+    ));
   }
 }
