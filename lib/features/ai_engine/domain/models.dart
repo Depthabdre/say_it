@@ -1,25 +1,31 @@
-// lib/features/ai_engine/domain/models.dart
+import 'dart:typed_data';
 
-/// Represents the tone the user wants the generated reply to be in.
 enum ReplyTone {
-  professional("Professional"),
-  friendly("Friendly"),
-  crush("Crush/Flirty"),
-  normal("Normal/Neutral");
+  normal('Normal'),
+  professional('Professional'),
+  friendly('Friendly'),
+  crush('Crush');
 
   final String displayName;
   const ReplyTone(this.displayName);
 }
 
-/// Represents the request sent to the AI service.
 class GenerationRequest {
-  final String screenContextText;
+  final String? screenContextText;
   final ReplyTone tone;
   final String? customInstructions;
+  
+  // New fields for raw audio input
+  final Uint8List? audioBytes;
+  final String? audioMimeType;
+  final bool isAmharic;
 
-  GenerationRequest({
-    required this.screenContextText,
-    this.tone = ReplyTone.normal,
+  const GenerationRequest({
+    this.screenContextText,
+    required this.tone,
     this.customInstructions,
+    this.audioBytes,
+    this.audioMimeType,
+    required this.isAmharic,
   });
 }

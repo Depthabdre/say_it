@@ -2,64 +2,69 @@ part of 'bubble_overlay_bloc.dart';
 
 class BubbleOverlayState extends Equatable {
   final bool isExpanded;
+  final bool isAmharic;
+  final ReplyTone selectedTone;
+  final bool isListening; // Serves as the active voice recording flag
+  final String? recordedAudioPath; // Stores recorded voice path
+  final List<String> generatedReplies;
   final bool isGenerating;
   final String? errorMessage;
-  final List<String> generatedReplies;
-  final ReplyTone selectedTone;
-  final bool isListening;
-  final bool isAmharic;
 
   const BubbleOverlayState({
     this.isExpanded = false,
-    this.isGenerating = false,
-    this.errorMessage,
-    this.generatedReplies = const [],
+    this.isAmharic = false,
     this.selectedTone = ReplyTone.normal,
     this.isListening = false,
-    this.isAmharic = true,
+    this.recordedAudioPath,
+    this.generatedReplies = const [],
+    this.isGenerating = false,
+    this.errorMessage,
   });
 
   BubbleOverlayState copyWith({
     bool? isExpanded,
-    bool? isGenerating,
-    String? errorMessage,
-    List<String>? generatedReplies,
+    bool? isAmharic,
     ReplyTone? selectedTone,
     bool? isListening,
-    bool? isAmharic,
+    String? recordedAudioPath,
+    List<String>? generatedReplies,
+    bool? isGenerating,
+    String? errorMessage,
   }) {
     return BubbleOverlayState(
       isExpanded: isExpanded ?? this.isExpanded,
-      isGenerating: isGenerating ?? this.isGenerating,
-      // If an empty string is passed, clear the error message completely
-      errorMessage: errorMessage != null ? (errorMessage.isEmpty ? null : errorMessage) : this.errorMessage,
-      generatedReplies: generatedReplies ?? this.generatedReplies,
+      isAmharic: isAmharic ?? this.isAmharic,
       selectedTone: selectedTone ?? this.selectedTone,
       isListening: isListening ?? this.isListening,
-      isAmharic: isAmharic ?? this.isAmharic,
+      recordedAudioPath: recordedAudioPath ?? this.recordedAudioPath,
+      generatedReplies: generatedReplies ?? this.generatedReplies,
+      isGenerating: isGenerating ?? this.isGenerating,
+      errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 
   BubbleOverlayState clearError() {
     return BubbleOverlayState(
       isExpanded: isExpanded,
-      isGenerating: isGenerating,
-      errorMessage: null,
-      generatedReplies: generatedReplies,
+      isAmharic: isAmharic,
       selectedTone: selectedTone,
       isListening: isListening,
-      isAmharic: isAmharic,
+      recordedAudioPath: recordedAudioPath,
+      generatedReplies: generatedReplies,
+      isGenerating: isGenerating,
+      errorMessage: null,
     );
   }
 
   @override
   List<Object?> get props => [
         isExpanded,
-        isGenerating,
-        errorMessage,
-        generatedReplies,
+        isAmharic,
         selectedTone,
         isListening,
-        isAmharic,
+        recordedAudioPath,
+        generatedReplies,
+        isGenerating,
+        errorMessage,
       ];
 }

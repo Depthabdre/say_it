@@ -49,7 +49,7 @@ class SayItApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6366F1), // A modern Indigo primary color
+          seedColor: const Color(0xFF6366F1), // Modern Indigo
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
@@ -67,7 +67,7 @@ class MainConfigurationScreen extends StatefulWidget {
       _MainConfigurationScreenState();
 }
 
-class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
+class _MainConfigurationScreenState extends State<MainConfigurationScreen> with WidgetsBindingObserver {
   bool _hasOverlayPermission = false;
   bool _hasAccessibilityPermission = false;
   bool _hasMicPermission = false;
@@ -75,7 +75,22 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkPermissions();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Automatically refresh permissions when the user navigates back to the app from System Settings
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPermissions();
+    }
   }
 
   Future<void> _checkPermissions() async {
@@ -83,11 +98,14 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
     final hasAccessibility =
         await AccessibilityServiceBridge.isAccessibilityEnabled();
     final hasMic = await Permission.microphone.isGranted;
-    setState(() {
-      _hasOverlayPermission = hasOverlay;
-      _hasAccessibilityPermission = hasAccessibility;
-      _hasMicPermission = hasMic;
-    });
+    
+    if (mounted) {
+      setState(() {
+        _hasOverlayPermission = hasOverlay;
+        _hasAccessibilityPermission = hasAccessibility;
+        _hasMicPermission = hasMic;
+      });
+    }
   }
 
   Future<void> _requestMicPermission() async {
@@ -106,7 +124,6 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
 
   Future<void> _requestAccessibilityPermission() async {
     await AccessibilityServiceBridge.openAccessibilitySettings();
-    // User has to manually navigate back, so we re-check when app resumes.
   }
 
   Future<void> _showOverlay() async {
@@ -158,12 +175,12 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
                   color: _hasOverlayPermission ? Colors.green : Colors.orange,
                   size: 32,
                 ),
-                title: Text("Overlay Permission"),
-                subtitle: Text("Allows the bubble to float."),
+                title: const Text("Overlay Permission"),
+                subtitle: const Text("Allows the bubble to float over other apps."),
                 trailing: !_hasOverlayPermission
                     ? TextButton(
                         onPressed: _requestOverlayPermission,
-                        child: Text("GRANT"),
+                        child: const Text("GRANT"),
                       )
                     : null,
               ),
@@ -179,12 +196,12 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
                       : Colors.orange,
                   size: 32,
                 ),
-                title: Text("Accessibility Service"),
-                subtitle: Text("Allows reading screen & injecting replies."),
+                title: const Text("Accessibility Service"),
+                subtitle: const Text("Allows reading screen & injecting replies."),
                 trailing: !_hasAccessibilityPermission
                     ? TextButton(
                         onPressed: _requestAccessibilityPermission,
-                        child: Text("GRANT"),
+                        child: const Text("GRANT"),
                       )
                     : null,
               ),
@@ -198,12 +215,12 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
                   color: _hasMicPermission ? Colors.green : Colors.orange,
                   size: 32,
                 ),
-                title: Text("Microphone Access"),
-                subtitle: Text("Allows voice-to-text in the dashboard."),
+                title: const Text("Microphone Access"),
+                subtitle: const Text("Allows high-accuracy voice inputs."),
                 trailing: !_hasMicPermission
                     ? TextButton(
                         onPressed: _requestMicPermission,
-                        child: Text("GRANT"),
+                        child: const Text("GRANT"),
                       )
                     : null,
               ),
@@ -231,12 +248,10 @@ class _MainConfigurationScreenState extends State<MainConfigurationScreen> {
                   label: const Text("Close Bubble"),
                 ),
               ] else ...[
-                Text(
+                const Text(
                   "Please grant all permissions above to use TapReply.",
                   textAlign: TextAlign.center,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                  style: TextStyle(color: Colors.white70),
                 ),
               ],
             ],

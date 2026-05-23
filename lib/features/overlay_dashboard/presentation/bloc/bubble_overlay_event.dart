@@ -2,6 +2,7 @@ part of 'bubble_overlay_bloc.dart';
 
 abstract class BubbleOverlayEvent extends Equatable {
   const BubbleOverlayEvent();
+
   @override
   List<Object?> get props => [];
 }
@@ -26,9 +27,17 @@ class ListeningStatusChangedEvent extends BubbleOverlayEvent {
   List<Object?> get props => [isListening];
 }
 
+class VoiceAudioRecordedEvent extends BubbleOverlayEvent {
+  final String? audioPath;
+  const VoiceAudioRecordedEvent(this.audioPath);
+
+  @override
+  List<Object?> get props => [audioPath];
+}
+
 class GenerateRepliesEvent extends BubbleOverlayEvent {
   final String customText;
-  const GenerateRepliesEvent({this.customText = ""});
+  const GenerateRepliesEvent({required this.customText});
 
   @override
   List<Object?> get props => [customText];

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -19,6 +21,7 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
     on<ToggleLanguageEvent>(_onToggleLanguage);
     on<ChangeToneEvent>(_onChangeTone);
     on<ListeningStatusChangedEvent>(_onListeningStatusChanged);
+    on<VoiceAudioRecordedEvent>(_onVoiceAudioRecorded);
     on<GenerateRepliesEvent>(_onGenerateReplies);
     on<RepliesReceivedEvent>(_onRepliesReceived);
     on<ErrorReceivedEvent>(_onErrorReceived);
@@ -37,6 +40,7 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
       errorMessage: newIsExpanded ? state.errorMessage : '',
       isGenerating: newIsExpanded ? state.isGenerating : false,
       isListening: newIsExpanded ? state.isListening : false,
+      recordedAudioPath: newIsExpanded ? state.recordedAudioPath : null,
     ));
 
     if (newIsExpanded) {
@@ -73,6 +77,13 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
     emit(state.copyWith(isListening: event.isListening));
   }
 
+  void _onVoiceAudioRecorded(
+    VoiceAudioRecordedEvent event,
+    Emitter<BubbleOverlayState> emit,
+  ) {
+    emit(state.copyWith(recordedAudioPath: event.audioPath));
+  }
+
   Future<void> _onGenerateReplies(
     GenerateRepliesEvent event,
     Emitter<BubbleOverlayState> emit,
@@ -82,37 +93,52 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
     try {
       String screenText = "";
       final customText = event.customText;
+      final bool hasAudio = state.recordedAudioPath != null;
 
-      if (customText.isEmpty) {
-        final extractedText =
-            await AccessibilityServiceBridge.extractScreenText();
-        if (extractedText == null ||
-            extractedText.trim().isEmpty ||
-            extractedText == "NO_ROOT_NODE") {
-          emit(state.copyWith(
-            isGenerating: false,
-            errorMessage:
-                "Could not read screen. Please open a chat app first or provide text manually.",
-          ));
-          return;
-        }
+      // Ensure we extract conversational screen text
+      final extractedText = await AccessibilityServiceBridge.extractScreenText();
+      if (extractedText != null &&
+          extractedText.trim().isNotEmpty &&
+          extractedText != "NO_ROOT_NODE") {
         screenText = extractedText;
-        debugPrint('Captured Screen Context: \\n"""\\n$screenText\\n"""');
       } else {
-        screenText = "User provided contextual input: $customText";
+        screenText = "No active screen conversation context found.";
+      }
+
+      Uint8List? audioBytes;
+      String? mimeType;
+
+      if (hasAudio) {
+        final file = File(state.recordedAudioPath!);
+        if (await file.exists()) {
+          audioBytes = await file.readAsBytes();
+          // Setting AAC/M4A mime type matching standard flutter audio recorder outputs
+          mimeType = Platform.isIOS ? 'audio/x-m4a' : 'audio/aac';
+        }
       }
 
       final request = GenerationRequest(
         screenContextText: screenText,
         tone: state.selectedTone,
         customInstructions: customText.isEmpty ? null : customText,
+        audioBytes: audioBytes,
+        audioMimeType: mimeType,
+        isAmharic: state.isAmharic,
       );
 
       final replies = await geminiService.generateReplies(request);
 
+      // Clean up the temporary recording file once submitted to conserve storage
+      if (state.recordedAudioPath != null) {
+        try {
+          await File(state.recordedAudioPath!).delete();
+        } catch (_) {}
+      }
+
       emit(state.copyWith(
         generatedReplies: replies,
         isGenerating: false,
+        recordedAudioPath: null, // Clear the processed voice clip path
       ));
 
       if (state.isExpanded) {
@@ -125,7 +151,6 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
         isGenerating: false,
       ));
       
-      // Auto clear error after 4 seconds to recover gracefully
       Future.delayed(const Duration(seconds: 4), () {
         if (!isClosed) {
            add(ClearCurrentStateEvent());
@@ -141,7 +166,7 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
     emit(state.copyWith(
       isGenerating: false,
       generatedReplies: event.replies,
-      errorMessage: '', // Clears the error
+      errorMessage: '',
     ));
     if (state.isExpanded) {
       await FlutterOverlayWindow.resizeOverlay(
@@ -158,7 +183,6 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
       errorMessage: event.error,
     ));
     
-    // Auto clear error after 4 seconds to recover gracefully
     Future.delayed(const Duration(seconds: 4), () {
       if (!isClosed) {
          add(ClearCurrentStateEvent());
@@ -172,6 +196,7 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
   ) async {
     emit(state.clearError().copyWith(
       generatedReplies: [],
+      recordedAudioPath: null,
     ));
     if (state.isExpanded) {
       await FlutterOverlayWindow.resizeOverlay(WindowSize.matchParent, 450, true);
@@ -187,6 +212,7 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
       isGenerating: false,
       generatedReplies: [],
       isListening: false,
+      recordedAudioPath: null,
     ));
   }
 }
