@@ -50,4 +50,6 @@ class ErrorReceivedEvent extends BubbleOverlayEvent {
   List<Object?> get props => [error];
 }
 
+class ClearCurrentStateEvent extends BubbleOverlayEvent {}
+
 class ResetBubbleEvent extends BubbleOverlayEvent {}

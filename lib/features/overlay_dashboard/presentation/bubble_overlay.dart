@@ -437,6 +437,32 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                 ),
                 const SizedBox(height: 24),
 
+                // Error Message Display (Independent of the Generate Button)
+                if ((state.errorMessage?.isNotEmpty ?? false))
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0x1AF44336),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0x4DF44336)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            state.errorMessage ?? "",
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 // Generate Button or Results
                 if (state.isGenerating)
                   const Center(
@@ -447,59 +473,70 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                       ),
                     ),
                   )
-                else if ((state.errorMessage?.isNotEmpty ?? false))
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0x1AF44336),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0x4DF44336)),
-                    ),
-                    child: Text(
-                      state.errorMessage ?? "",
-                      style: const TextStyle(color: Colors.redAccent),
-                      textAlign: TextAlign.center,
-                    ),
-                  )
                 else if (state.generatedReplies.isNotEmpty)
                   Column(
-                    children: state.generatedReplies.map((reply) {
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0x0DFFFFFF),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0x1AFFFFFF)),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                reply,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
+                    children: [
+                      ...state.generatedReplies.map((reply) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0x0DFFFFFF),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0x1AFFFFFF)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  reply,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.send,
-                                color: Color(0xFF6366F1),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.send,
+                                  color: Color(0xFF6366F1),
+                                ),
+                                onPressed: () => _handleInsert(reply),
+                                tooltip: "Magic Send",
                               ),
-                              onPressed: () => _handleInsert(reply),
-                              tooltip: "Magic Send",
+                            ],
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 8),
+                      // Cancel Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            context.read<BubbleOverlayBloc>().add(
+                                  ClearCurrentStateEvent(),
+                                );
+                          },
+                          icon: const Icon(Icons.close, color: Colors.white70, size: 18),
+                          label: const Text(
+                            "Cancel Choices",
+                            style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0x33FFFFFF)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          ],
+                          ),
                         ),
-                      );
-                    }).toList(),
+                      ),
+                    ],
                   )
                 else
                   SizedBox(

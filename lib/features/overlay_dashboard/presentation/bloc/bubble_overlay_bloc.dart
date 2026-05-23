@@ -22,6 +22,7 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
     on<GenerateRepliesEvent>(_onGenerateReplies);
     on<RepliesReceivedEvent>(_onRepliesReceived);
     on<ErrorReceivedEvent>(_onErrorReceived);
+    on<ClearCurrentStateEvent>(_onClearCurrentState);
     on<ResetBubbleEvent>(_onResetBubble);
   }
 
@@ -123,6 +124,13 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
         errorMessage: e.toString(),
         isGenerating: false,
       ));
+      
+      // Auto clear error after 4 seconds to recover gracefully
+      Future.delayed(const Duration(seconds: 4), () {
+        if (!isClosed) {
+           add(ClearCurrentStateEvent());
+        }
+      });
     }
   }
 
@@ -149,6 +157,25 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
       isGenerating: false,
       errorMessage: event.error,
     ));
+    
+    // Auto clear error after 4 seconds to recover gracefully
+    Future.delayed(const Duration(seconds: 4), () {
+      if (!isClosed) {
+         add(ClearCurrentStateEvent());
+      }
+    });
+  }
+
+  void _onClearCurrentState(
+    ClearCurrentStateEvent event,
+    Emitter<BubbleOverlayState> emit,
+  ) async {
+    emit(state.clearError().copyWith(
+      generatedReplies: [],
+    ));
+    if (state.isExpanded) {
+      await FlutterOverlayWindow.resizeOverlay(WindowSize.matchParent, 450, true);
+    }
   }
 
   void _onResetBubble(
