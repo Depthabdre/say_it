@@ -195,11 +195,15 @@ class _BubbleOverlayState extends State<BubbleOverlay>
 
   Widget _buildExpandedDashboard(BubbleOverlayState state) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final containerWidth = screenWidth > 350 ? screenWidth * 0.95 : 350.0;
-    final bool hasAudioFile = state.recordedAudioPath != null;
+    
+    // Limits the container width, while leaving comfortable breathing margins on left/right edges
+    final double horizontalMargin = 24.0;
+    final double containerWidth = screenWidth - (horizontalMargin * 2);
 
-    // Define a strictly constrained, predictable height to fit inside standard overlay limits
-    final double overlayHeight = state.generatedReplies.isNotEmpty ? 520 : 380;
+    // Dynamic, responsive height allocation (allows wrapping space for wrapped tones)
+    final double overlayHeight = state.generatedReplies.isNotEmpty ? 530 : 405;
+
+    final bool hasAudioFile = state.recordedAudioPath != null;
 
     return OverflowBox(
       maxHeight: double.infinity,
@@ -213,10 +217,10 @@ class _BubbleOverlayState extends State<BubbleOverlay>
           child: Container(
             width: containerWidth,
             height: overlayHeight,
-            margin: const EdgeInsets.only(bottom: 16),
+            margin: EdgeInsets.only(bottom: 16, left: horizontalMargin, right: horizontalMargin),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              color: const Color(0xF613141F), // Rich dark slate
+              color: const Color(0xF613141F), // Deep slate gray with high opacity
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: const Color(0x1AFFFFFF)),
               boxShadow: const [
@@ -340,6 +344,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                               _instructionController.clear();
                               context.read<BubbleOverlayBloc>().add(
                                 const VoiceAudioRecordedEvent(null),
+                                // Resets file selection state
                               );
                             },
                             tooltip: "Delete clip",
@@ -399,58 +404,53 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
 
-                // 3. PINNED CONTROLS: TONE SELECTORS
-                SizedBox(
-                  height: 38,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: ReplyTone.values.map((tone) {
-                      final isSelected = state.selectedTone == tone;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 6.0),
-                        child: ChoiceChip(
-                          label: Text(tone.displayName),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            if (selected) {
-                              context.read<BubbleOverlayBloc>().add(
-                                ChangeToneEvent(tone),
-                              );
-                            }
-                          },
-                          showCheckmark: false,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          selectedColor: const Color(0xFF6366F1),
-                          backgroundColor: const Color(0xFF161722),
-                          labelStyle: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF94A3B8),
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                            fontSize: 11,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              width: 1,
-                              color: isSelected
-                                  ? const Color(0xFF818CF8)
-                                  : const Color(0xFF2D3139),
-                            ),
-                          ),
+                // 3. PINNED CONTROLS: TONE SELECTORS (WRAPS ON OVERFLOW)
+                Wrap(
+                  spacing: 6.0,
+                  runSpacing: 6.0,
+                  children: ReplyTone.values.map((tone) {
+                    final isSelected = state.selectedTone == tone;
+                    return ChoiceChip(
+                      label: Text(tone.displayName),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        if (selected) {
+                          context.read<BubbleOverlayBloc>().add(
+                            ChangeToneEvent(tone),
+                          );
+                        }
+                      },
+                      showCheckmark: false,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      selectedColor: const Color(0xFF6366F1),
+                      backgroundColor: const Color(0xFF161722),
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF94A3B8),
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          width: 1,
+                          color: isSelected
+                              ? const Color(0xFF818CF8)
+                              : const Color(0xFF2D3139),
                         ),
-                      );
-                    }).toList(),
-                  ),
+                      ),
+                    );
+                  }).toList(),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
 
                 // 4. ERROR DISPLAY SECTION
                 if (state.errorMessage?.isNotEmpty ?? false)
@@ -477,7 +477,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                     ),
                   ),
 
-                // 5. THE DYNAMIC REMAINING AREA (SHOWN ONLY ON GENERATION COMPLETE OR LOADING)
+                // 5. THE DYNAMIC CONTENT AREA
                 Expanded(
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
@@ -491,11 +491,10 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                             ? Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Replies Scrollable Area
+                                  // Static non-drag replies list
                                   Expanded(
                                     child: ListView.builder(
                                       controller: _repliesScrollController,
-                                      // Disable active dragging to eliminate conflicts with Android overlay dragging.
                                       physics: const NeverScrollableScrollPhysics(),
                                       itemCount: state.generatedReplies.length,
                                       itemBuilder: (context, index) {
@@ -537,13 +536,13 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  // Clean Programmatic Scroll Control Dock
+                                  // Scroll Control Dock
                                   Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       IconButton(
                                         icon: const Icon(Icons.keyboard_arrow_up, color: Colors.white70),
-                                        onPressed: () => _scrollReplies(-80), // Scrolls up smoothly
+                                        onPressed: () => _scrollReplies(-80),
                                         style: IconButton.styleFrom(
                                           backgroundColor: const Color(0x13FFFFFF),
                                           shape: RoundedRectangleBorder(
@@ -554,7 +553,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                                       const SizedBox(height: 8),
                                       IconButton(
                                         icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
-                                        onPressed: () => _scrollReplies(80), // Scrolls down smoothly
+                                        onPressed: () => _scrollReplies(80),
                                         style: IconButton.styleFrom(
                                           backgroundColor: const Color(0x13FFFFFF),
                                           shape: RoundedRectangleBorder(
@@ -593,7 +592,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                   ),
                 ),
                 
-                // 6. BOTTOM ACTION BAR (SHOWS CANCEL ACTION ON GENERATED REPLIES)
+                // 6. BOTTOM ACTION BAR
                 if (state.generatedReplies.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   SizedBox(
