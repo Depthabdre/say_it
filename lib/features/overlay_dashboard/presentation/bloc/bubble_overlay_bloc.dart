@@ -5,9 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
-import '../../../../features/ai_engine/domain/models.dart';
-import '../../../../features/ai_engine/application/gemini_service.dart';
-import '../../../../core/native_bridge/accessibility_service.dart';
+import 'package:say_it/features/ai_engine/domain/models.dart';
+import 'package:say_it/features/ai_engine/application/gemini_service.dart';
+import 'package:say_it/core/native_bridge/accessibility_service.dart';
 
 part 'bubble_overlay_event.dart';
 part 'bubble_overlay_state.dart';
@@ -18,7 +18,8 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
   BubbleOverlayBloc({required this.geminiService})
       : super(const BubbleOverlayState()) {
     on<ToggleExpandEvent>(_onToggleExpand);
-    on<ToggleLanguageEvent>(_onToggleLanguage);
+    on<ToggleInputLanguageEvent>(_onToggleInputLanguage);
+    on<ToggleOutputLanguageEvent>(_onToggleOutputLanguage);
     on<ChangeToneEvent>(_onChangeTone);
     on<ListeningStatusChangedEvent>(_onListeningStatusChanged);
     on<VoiceAudioRecordedEvent>(_onVoiceAudioRecorded);
@@ -56,11 +57,18 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
     }
   }
 
-  void _onToggleLanguage(
-    ToggleLanguageEvent event,
+  void _onToggleInputLanguage(
+    ToggleInputLanguageEvent event,
     Emitter<BubbleOverlayState> emit,
   ) {
-    emit(state.copyWith(isAmharic: !state.isAmharic));
+    emit(state.copyWith(isAmharicInput: !state.isAmharicInput));
+  }
+
+  void _onToggleOutputLanguage(
+    ToggleOutputLanguageEvent event,
+    Emitter<BubbleOverlayState> emit,
+  ) {
+    emit(state.copyWith(isAmharicOutput: !state.isAmharicOutput));
   }
 
   void _onChangeTone(
@@ -95,7 +103,6 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
       final customText = event.customText;
       final bool hasAudio = state.recordedAudioPath != null;
 
-      // Ensure we extract conversational screen text
       final extractedText = await AccessibilityServiceBridge.extractScreenText();
       if (extractedText != null &&
           extractedText.trim().isNotEmpty &&
@@ -112,7 +119,6 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
         final file = File(state.recordedAudioPath!);
         if (await file.exists()) {
           audioBytes = await file.readAsBytes();
-          // Setting AAC/M4A mime type matching standard flutter audio recorder outputs
           mimeType = Platform.isIOS ? 'audio/x-m4a' : 'audio/aac';
         }
       }
@@ -123,12 +129,12 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
         customInstructions: customText.isEmpty ? null : customText,
         audioBytes: audioBytes,
         audioMimeType: mimeType,
-        isAmharic: state.isAmharic,
+        isAmharicInput: state.isAmharicInput,
+        isAmharicOutput: state.isAmharicOutput,
       );
 
       final replies = await geminiService.generateReplies(request);
 
-      // Clean up the temporary recording file once submitted to conserve storage
       if (state.recordedAudioPath != null) {
         try {
           await File(state.recordedAudioPath!).delete();
@@ -138,7 +144,7 @@ class BubbleOverlayBloc extends Bloc<BubbleOverlayEvent, BubbleOverlayState> {
       emit(state.copyWith(
         generatedReplies: replies,
         isGenerating: false,
-        recordedAudioPath: null, // Clear the processed voice clip path
+        recordedAudioPath: null, 
       ));
 
       if (state.isExpanded) {

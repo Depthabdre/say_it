@@ -65,7 +65,6 @@ class _BubbleOverlayState extends State<BubbleOverlay>
     super.dispose();
   }
 
-  /// Programmatically animates the scroll position of the replies list
   void _scrollReplies(double offset) {
     if (_repliesScrollController.hasClients) {
       final double targetPosition = _repliesScrollController.offset + offset;
@@ -87,7 +86,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
         final path = '${tempDir.path}/voice_input_${DateTime.now().millisecondsSinceEpoch}.m4a';
         
         bloc.add(const ListeningStatusChangedEvent(true));
-        _instructionController.text = "[Recording audio in ${state.isAmharic ? 'Amharic' : 'English'}...]";
+        _instructionController.text = "[Recording audio in ${state.isAmharicInput ? 'Amharic' : 'English'}...]";
 
         await _audioRecorder.start(
           const RecordConfig(encoder: AudioEncoder.aacLc), 
@@ -107,7 +106,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
         
         if (path != null && path.isNotEmpty) {
           bloc.add(VoiceAudioRecordedEvent(path));
-          _instructionController.text = "[Voice input captured — ${state.isAmharic ? 'Amharic' : 'English'}]";
+          _instructionController.text = "[Voice input captured — ${state.isAmharicInput ? 'Amharic' : 'English'}]";
         } else {
           _instructionController.clear();
           bloc.add(const VoiceAudioRecordedEvent(null));
@@ -196,11 +195,9 @@ class _BubbleOverlayState extends State<BubbleOverlay>
   Widget _buildExpandedDashboard(BubbleOverlayState state) {
     final screenWidth = MediaQuery.of(context).size.width;
     
-    // Limits the container width, while leaving comfortable breathing margins on left/right edges
     final double horizontalMargin = 24.0;
     final double containerWidth = screenWidth - (horizontalMargin * 2);
 
-    // Dynamic, responsive height allocation (allows wrapping space for wrapped tones)
     final double overlayHeight = state.generatedReplies.isNotEmpty ? 530 : 405;
 
     final bool hasAudioFile = state.recordedAudioPath != null;
@@ -220,7 +217,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
             margin: EdgeInsets.only(bottom: 16, left: horizontalMargin, right: horizontalMargin),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              color: const Color(0xF613141F), // Deep slate gray with high opacity
+              color: const Color(0xF613141F), 
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: const Color(0x1AFFFFFF)),
               boxShadow: const [
@@ -344,7 +341,6 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                               _instructionController.clear();
                               context.read<BubbleOverlayBloc>().add(
                                 const VoiceAudioRecordedEvent(null),
-                                // Resets file selection state
                               );
                             },
                             tooltip: "Delete clip",
@@ -353,10 +349,11 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                     suffixIcon: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // Input Language Toggle Pill (IN)
                         InkWell(
                           onTap: () {
                             context.read<BubbleOverlayBloc>().add(
-                              ToggleLanguageEvent(),
+                              ToggleInputLanguageEvent(),
                             );
                             if (state.isListening) {
                               _handleMicAction().then((_) => _handleMicAction());
@@ -373,19 +370,50 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: state.isAmharic
+                              color: state.isAmharicInput
                                   ? Colors.amber.withAlpha(51)
                                   : Colors.blueAccent.withAlpha(51),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              state.isAmharic ? 'AM' : 'EN',
+                              'IN: ${state.isAmharicInput ? "AM" : "EN"}',
                               style: TextStyle(
-                                color: state.isAmharic
+                                color: state.isAmharicInput
                                     ? Colors.amber
                                     : Colors.blueAccent,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 10,
+                                fontSize: 9,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        // Output Language Toggle Pill (OUT)
+                        InkWell(
+                          onTap: () {
+                            context.read<BubbleOverlayBloc>().add(
+                              ToggleOutputLanguageEvent(),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: state.isAmharicOutput
+                                  ? Colors.amber.withAlpha(51)
+                                  : Colors.blueAccent.withAlpha(51),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'OUT: ${state.isAmharicOutput ? "AM" : "EN"}',
+                              style: TextStyle(
+                                color: state.isAmharicOutput
+                                    ? Colors.amber
+                                    : Colors.blueAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 9,
                               ),
                             ),
                           ),

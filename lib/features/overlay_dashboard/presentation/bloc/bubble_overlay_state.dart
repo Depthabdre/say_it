@@ -2,17 +2,19 @@ part of 'bubble_overlay_bloc.dart';
 
 class BubbleOverlayState extends Equatable {
   final bool isExpanded;
-  final bool isAmharic;
+  final bool isAmharicInput;   // For mic and input text definition
+  final bool isAmharicOutput;  // For generated reply language
   final ReplyTone selectedTone;
-  final bool isListening; // Serves as the active voice recording flag
-  final String? recordedAudioPath; // Stores recorded voice path
+  final bool isListening; 
+  final String? recordedAudioPath;
   final List<String> generatedReplies;
   final bool isGenerating;
   final String? errorMessage;
 
   const BubbleOverlayState({
     this.isExpanded = false,
-    this.isAmharic = false,
+    this.isAmharicInput = false,
+    this.isAmharicOutput = false,
     this.selectedTone = ReplyTone.normal,
     this.isListening = false,
     this.recordedAudioPath,
@@ -23,7 +25,8 @@ class BubbleOverlayState extends Equatable {
 
   BubbleOverlayState copyWith({
     bool? isExpanded,
-    bool? isAmharic,
+    bool? isAmharicInput,
+    bool? isAmharicOutput,
     ReplyTone? selectedTone,
     bool? isListening,
     String? recordedAudioPath,
@@ -33,7 +36,8 @@ class BubbleOverlayState extends Equatable {
   }) {
     return BubbleOverlayState(
       isExpanded: isExpanded ?? this.isExpanded,
-      isAmharic: isAmharic ?? this.isAmharic,
+      isAmharicInput: isAmharicInput ?? this.isAmharicInput,
+      isAmharicOutput: isAmharicOutput ?? this.isAmharicOutput,
       selectedTone: selectedTone ?? this.selectedTone,
       isListening: isListening ?? this.isListening,
       recordedAudioPath: recordedAudioPath ?? this.recordedAudioPath,
@@ -46,7 +50,8 @@ class BubbleOverlayState extends Equatable {
   BubbleOverlayState clearError() {
     return BubbleOverlayState(
       isExpanded: isExpanded,
-      isAmharic: isAmharic,
+      isAmharicInput: isAmharicInput,
+      isAmharicOutput: isAmharicOutput,
       selectedTone: selectedTone,
       isListening: isListening,
       recordedAudioPath: recordedAudioPath,
@@ -59,7 +64,8 @@ class BubbleOverlayState extends Equatable {
   @override
   List<Object?> get props => [
         isExpanded,
-        isAmharic,
+        isAmharicInput,
+        isAmharicOutput,
         selectedTone,
         isListening,
         recordedAudioPath,

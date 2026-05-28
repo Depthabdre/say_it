@@ -9,7 +9,9 @@ abstract class BubbleOverlayEvent extends Equatable {
 
 class ToggleExpandEvent extends BubbleOverlayEvent {}
 
-class ToggleLanguageEvent extends BubbleOverlayEvent {}
+// Separated language toggles
+class ToggleInputLanguageEvent extends BubbleOverlayEvent {}
+class ToggleOutputLanguageEvent extends BubbleOverlayEvent {}
 
 class ChangeToneEvent extends BubbleOverlayEvent {
   final ReplyTone tone;

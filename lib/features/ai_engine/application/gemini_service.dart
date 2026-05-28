@@ -67,13 +67,16 @@ class GeminiService {
   String _buildPrompt(GenerationRequest request) {
     final buffer = StringBuffer();
     
-    final targetLanguage = request.isAmharic ? "Amharic (written in natural Ge'ez script)" : "English";
+    final inputLang = request.isAmharicInput ? "Amharic" : "English";
+    final outputLang = request.isAmharicOutput ? "Amharic (written in natural Ge'ez script)" : "English";
+    
     final screenContext = request.screenContextText ?? "None";
     final userIntent = request.customInstructions ?? "None";
 
-    // Single-paragraph realistic human prompt as requested
+    // Optimized Prompt: Implements input/output translation controls and user-priority constraint
     buffer.writeln(
-      "Generate exactly 3 reply options in $targetLanguage based on the context: '$screenContext' and user intent: '$userIntent' under the tone '${request.tone.displayName}'. "
+      "Generate exactly 3 reply options strictly in $outputLang based on the conversation screen context: '$screenContext' and the user's manual instruction (provided in $inputLang): '$userIntent' under the tone '${request.tone.displayName}'. "
+      "PRIORITY CONSTRAINT: If the user has provided a custom instruction/intent (through typing or spoken audio), prioritize this input heavily. Do not over-consider or get distracted by the screen context text unless the user specifically references it. Use the screen context primarily to understand who they are replying to or for basic background grounding, but let the user's manual instruction completely drive the content. "
       "Be more human, act like how real life people respond to such things in human-sounding and human words without explaining, being preachy, or trying very hard on each tone. "
       "Return ONLY a raw JSON array of 3 strings (e.g. [\"reply 1\", \"reply 2\", \"reply 3\"]) with no markdown code blocks, intro, or explanation."
     );

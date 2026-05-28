@@ -14,11 +14,12 @@ class GenerationRequest {
   final String? screenContextText;
   final ReplyTone tone;
   final String? customInstructions;
-  
-  // New fields for raw audio input
   final Uint8List? audioBytes;
   final String? audioMimeType;
-  final bool isAmharic;
+  
+  // Independent language controls
+  final bool isAmharicInput;
+  final bool isAmharicOutput;
 
   const GenerationRequest({
     this.screenContextText,
@@ -26,6 +27,7 @@ class GenerationRequest {
     this.customInstructions,
     this.audioBytes,
     this.audioMimeType,
-    required this.isAmharic,
+    required this.isAmharicInput,
+    required this.isAmharicOutput,
   });
 }
