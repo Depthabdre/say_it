@@ -238,11 +238,11 @@ class _BubbleOverlayState extends State<BubbleOverlay>
                   children: [
                     Row(
                       children: [
-                        const Icon(
-                          Icons.auto_awesome,
-                          color: Color(0xFFA855F7),
-                          size: 20,
-                        ),
+                        // const Icon(
+                        //   Icons.auto_awesome,
+                        //   color: Color(0xFFA855F7),
+                        //   size: 20,
+                        // ),
                         const SizedBox(width: 8),
                         Text(
                           "TapReply",
