@@ -1,52 +1,75 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:google_generative_ai/google_generative_ai.dart' hide ServerException;
 import 'package:say_it/features/ai_engine/domain/models.dart';
 import 'package:say_it/core/error/exceptions.dart';
 import '../ai_service.dart';
 import '../ai_prompt_helper.dart';
 
 class GeminiProvider implements AiService {
-  static const String _modelName = 'gemini-2.5-flash';
-  late final GenerativeModel _model;
+  final http.Client _httpClient;
 
-  GeminiProvider() {
-    final apiKey = dotenv.env['GEMINI_API_KEY'];
-    if (apiKey == null || apiKey.isEmpty) {
-      throw UnknownException(message: 'GEMINI_API_KEY not found in .env file.');
-    }
-    _model = GenerativeModel(
-      model: _modelName,
-      apiKey: apiKey,
-      generationConfig: GenerationConfig(
-        temperature: 1.0, // Recommends 1.0 for Gemini 3.5/2.5 flash models
-        responseMimeType: 'application/json',
-      ),
-    );
-  }
+  GeminiProvider({http.Client? httpClient}) : _httpClient = httpClient ?? http.Client();
 
   @override
   Future<List<String>> generateReplies(GenerationRequest request) async {
+    final proxyUrl = dotenv.env['PROXY_BASE_URL'];
+    if (proxyUrl == null || proxyUrl.isEmpty) {
+      throw UnknownException(message: 'PROXY_BASE_URL not found in .env');
+    }
+
     try {
       final prompt = AiPromptHelper.buildPrompt(request);
-      final List<Part> parts = [TextPart(prompt)];
+      final List<Map<String, dynamic>> parts = [
+        {'text': prompt}
+      ];
 
-      // Append recorded voice audio if present
+      // Convert audio inline bytes if they are present in the voice instructions
       if (request.audioBytes != null && request.audioMimeType != null) {
-        parts.add(DataPart(request.audioMimeType!, request.audioBytes!));
+        parts.add({
+          'inlineData': {
+            'mimeType': request.audioMimeType!,
+            'data': base64Encode(request.audioBytes!),
+          }
+        });
       }
 
-      final response = await _model.generateContent([Content.multi(parts)]);
-      final rawText = response.text ?? '';
+      final response = await _httpClient.post(
+        Uri.parse(proxyUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Provider': 'gemini',
+        },
+        body: jsonEncode({
+          'contents': [
+            {'parts': parts}
+          ],
+          'generationConfig': {
+            'temperature': 1.0,
+            'responseMimeType': 'application/json',
+          }
+        }),
+      ).timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 429) {
+        throw RateLimitException(
+          providerName: 'Gemini', 
+          message: 'Gemini rate limits exceeded.',
+        );
+      }
+
+      if (response.statusCode != 200) {
+        throw AiEngineException(
+          message: 'Gemini request failed through proxy: status ${response.statusCode}',
+        );
+      }
+
+      final Map<String, dynamic> responseJson = jsonDecode(response.body);
+      final String rawText = responseJson['candidates'][0]['content']['parts'][0]['text'] ?? '';
 
       return AiPromptHelper.parseAndCleanJson(rawText);
     } catch (e) {
-      final errorString = e.toString();
-      if (errorString.contains('429') || errorString.contains('RESOURCE_EXHAUSTED')) {
-        throw RateLimitException(
-          providerName: 'Gemini',
-          message: 'Gemini rate limits exceeded or resource exhausted.',
-        );
-      }
+      if (e is RateLimitException) rethrow;
       throw AiEngineException(message: 'GeminiProvider failed: $e');
     }
   }
